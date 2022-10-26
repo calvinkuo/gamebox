@@ -12,6 +12,21 @@ from urllib.request import urlretrieve
 
 import pygame
 
+
+__all__ = [
+    'load_sprite_sheet',
+    'from_image',
+    'from_color',
+    'from_text',
+    'Camera',
+    'SpriteBox',
+    'pause',
+    'unpause',
+    'stop_loop',
+    'keys_loop'
+]
+
+
 pygame.init()
 
 # a cache to avoid loading images many time
@@ -99,24 +114,15 @@ def load_sprite_sheet(url_or_filename, rows, columns):
     return frames
 
 
-__all__ = ['load_sprite_sheet']
-
-
 def from_image(x, y, filename_or_url):
     """Creates a SpriteBox object at the given location from the provided filename or url"""
     image, key = _get_image(filename_or_url)
     return SpriteBox(x, y, image, None)
 
 
-__all__.append('from_image')
-
-
 def from_color(x, y, color, width, height):
     """Creates a SpriteBox object at the given location with the given color, width, and height"""
     return SpriteBox(x, y, None, color, width, height)
-
-
-__all__.append('from_color')
 
 
 def from_circle(x, y, color, radius, *args):
@@ -153,9 +159,6 @@ def from_text(x, y, text, fontsize, color, bold=False, italic=False):
     font.set_italic(italic)
     if type(color) is str: color = pygame.Color(color)
     return from_image(x, y, font.render(text, True, color))
-
-
-__all__.append('from_text')
 
 
 class Camera(object):
@@ -286,9 +289,6 @@ class Camera(object):
 
     def __str__(self):
         return '%dx%d Camera centered at %d,%d' % (self.width, self.height, self.x, self.y)
-
-
-__all__.append('Camera')
 
 
 class SpriteBox(object):
@@ -547,7 +547,7 @@ class SpriteBox(object):
                 surface.blit(self._image, self.topleft)
 
     def flip(self):
-        """mirrors the SpriteBox left-to-right. 
+        """mirrors the SpriteBox left-to-right.
         Mirroring top-to-bottom can be accomplished by
             b1.rotate(180)
             b1.flip()"""
@@ -561,8 +561,6 @@ class SpriteBox(object):
         key = self.__dict__['_key']
         self._set_key(key[0], key[1], key[2], key[3], key[4] + angle)
 
-
-__all__.append('SpriteBox')
 
 _timeron = False
 _timerfps = 0
@@ -584,7 +582,7 @@ def timer_loop(fps, callback, limit=None):
             print 'no keys were pressed since the last tick'
         camera.draw(box)
         camera.display()
-    
+
     gamebox.timer_loop(30, tick)
     ----"""
     global _timeron, _timerfps
@@ -617,24 +615,15 @@ def pause():
     pygame.time.set_timer(pygame.USEREVENT, 0)
 
 
-__all__.append('pause')
-
-
 def unpause():
     """Unpauses the timer; an error if there is no timer to unpause"""
     if not _timeron: raise Exception("Cannot pause a timer before calling timer_loop(fps, callback)")
     pygame.time.set_timer(pygame.USEREVENT, int(1000 / _timerfps))
 
 
-__all__.append('unpause')
-
-
 def stop_loop():
     """Completely quits one timer_loop or keys_loop, usually ending the program"""
     pygame.event.post(pygame.event.Event(pygame.QUIT))
-
-
-__all__.append('stop_loop')
 
 
 def keys_loop(callback):
@@ -648,7 +637,7 @@ def keys_loop(callback):
             print 'A key pressed'
         camera.draw(box)
         camera.display()
-    
+
     gamebox.keys_loop(onPress)
     ----"""
     while True:
@@ -660,8 +649,6 @@ def keys_loop(callback):
         if event.type == pygame.MOUSEBUTTONDOWN:
             callback([])
 
-
-__all__.append('keys_loop')
 
 if __name__ == "__main__":
     camera = Camera(400, 400)
