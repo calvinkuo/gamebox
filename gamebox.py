@@ -6,15 +6,11 @@ into the public domain.
 As a courtesy, Luther would appreciate it if you acknowledged him in any work
 that benefited from this code."""
 
-from __future__ import division  # only used in python2
+import os.path
+import sys
+from urllib.request import urlretrieve
 
-import pygame, sys
-import urllib, os.path
-
-if 'urlretrieve' not in dir(urllib):  # python 3
-    from urllib.request import urlretrieve as _urlretrieve
-else:  # python 2
-    _urlretrieve = urllib.urlretrieve
+import pygame
 
 pygame.init()
 
@@ -63,7 +59,7 @@ def _image_from_url(url):
     filename = os.path.basename(url)
     if not os.path.exists(filename):
         if '://' not in url: url = 'http://' + url
-        _urlretrieve(url, filename)
+        urlretrieve(url, filename)
     image, filename = _image_from_file(filename)
     return image, filename
 
