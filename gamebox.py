@@ -34,7 +34,7 @@ _timeron = False
 _timerfps = 0
 
 
-class Camera(object):
+class Camera:
     """A camera defines what is visible. It has a width, height, full screen status,
     and can be moved. Moving a camera changes what is visible.
     """
@@ -164,7 +164,7 @@ class Camera(object):
         return '%dx%d Camera centered at %d,%d' % (self.width, self.height, self.x, self.y)
 
 
-class SpriteBox(object):
+class SpriteBox:
     """Intended to represent a sprite (i.e., an image that can be drawn as part of a larger view) and the box that contains it. Has various collision and movement methods built in."""
 
     #    __slots__ = ["x","y","speedx","speedy","_w","_h","_key","_image","_color"]
