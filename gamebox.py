@@ -1,10 +1,10 @@
 # A library file for simplifying pygame interaction.  You MUST place this file in the same directory as your game py files.
 
-'''This code is the original work of Luther Tychonievich, who releases it
+"""This code is the original work of Luther Tychonievich, who releases it
 into the public domain.
 
 As a courtesy, Luther would appreciate it if you acknowledged him in any work
-that benefited from this code.'''
+that benefited from this code."""
 
 from __future__ import division # only used in python2
 
@@ -21,7 +21,7 @@ pygame.init()
 _known_images = {}
 
 def _image(key, flip=False, w=0, h=0, angle=0):
-    '''A method for loading images, caching them, and flipping them'''
+    """A method for loading images, caching them, and flipping them"""
     if '__hash__' not in dir(key):
         key = id(key)
     angle,w,h = int(angle), int(w), int(h)
@@ -54,7 +54,7 @@ def _image(key, flip=False, w=0, h=0, angle=0):
     return ans
 
 def _image_from_url(url):
-    '''a method for loading images from urls by first saving them locally'''
+    """a method for loading images from urls by first saving them locally"""
     filename = os.path.basename(url)
     if not os.path.exists(filename):
         if '://' not in url: url = 'http://'+url
@@ -63,14 +63,14 @@ def _image_from_url(url):
     return image, filename
 
 def _image_from_file(filename):
-    '''a method for loading images from files'''
+    """a method for loading images from files"""
     image = pygame.image.load(filename).convert_alpha()
     _known_images[filename] = image
     _known_images[(image.get_width(), image.get_height(), filename)] = image
     return image, filename
 
 def _get_image(thing):
-    '''a method for loading images from cache, then file, then url'''
+    """a method for loading images from cache, then file, then url"""
     if thing in _known_images: return _known_images[thing], thing
     sid = '__id__'+str(id(thing))
     if sid in _known_images: return _known_images[sid], sid
@@ -82,7 +82,7 @@ def _get_image(thing):
     return thing, sid
 
 def load_sprite_sheet(url_or_filename, rows, columns):
-    '''Loads a sprite sheet. Assumes the sheet has rows-by-columns evenly-spaced images and returns a list of those images.'''
+    """Loads a sprite sheet. Assumes the sheet has rows-by-columns evenly-spaced images and returns a list of those images."""
     sheet, key = _get_image(url_or_filename)
     height = sheet.get_height() / rows
     width = sheet.get_width() / columns
@@ -96,19 +96,19 @@ def load_sprite_sheet(url_or_filename, rows, columns):
 __all__ = ['load_sprite_sheet']
 
 def from_image(x, y, filename_or_url):
-    '''Creates a SpriteBox object at the given location from the provided filename or url'''
+    """Creates a SpriteBox object at the given location from the provided filename or url"""
     image, key = _get_image(filename_or_url)
     return SpriteBox(x, y, image, None)
 __all__.append('from_image')
 
 def from_color(x, y, color, width, height):
-    '''Creates a SpriteBox object at the given location with the given color, width, and height'''
+    """Creates a SpriteBox object at the given location with the given color, width, and height"""
     return SpriteBox(x, y, None, color, width, height)
 __all__.append('from_color')
 
 def from_circle(x, y, color, radius, *args):
-    '''Creates a SpriteBox object at the given location filled with a circle.
-    from_circle(x,y,color,radius,color2,radius2,color3,radius3,...) works too; the largest circle must come first'''
+    """Creates a SpriteBox object at the given location filled with a circle.
+    from_circle(x,y,color,radius,color2,radius2,color3,radius3,...) works too; the largest circle must come first"""
     img = pygame.surface.Surface((radius*2, radius*2), pygame.SRCALPHA, 32)
     if type(color) is str: color = pygame.Color(color)
     pygame.draw.circle(img, color, (radius,radius), radius)
@@ -119,8 +119,8 @@ def from_circle(x, y, color, radius, *args):
     return SpriteBox(x, y, img, None)
 
 def from_polygon(x, y, color, *pts):
-    '''Creates a SpriteBox of minimal size to store the given points.
-    Note that it will be centered; adding the same offset to all points does not change the polygon.'''
+    """Creates a SpriteBox of minimal size to store the given points.
+    Note that it will be centered; adding the same offset to all points does not change the polygon."""
     x0 = min(x for x,y in pts)
     y0 = min(y for x,y in pts)
     w = max(x for x,y in pts) - x0
@@ -131,7 +131,7 @@ def from_polygon(x, y, color, *pts):
     return SpriteBox(x, y, img, None)
 
 def from_text(x, y, text, fontsize, color, bold=False, italic=False):
-    '''Creates a SpriteBox object at the given location with the given text as its content'''
+    """Creates a SpriteBox object at the given location with the given text as its content"""
     # always use default font. Earlier versions allowed others, but this proved platform-dependent
     font = pygame.font.Font(None, fontsize)
     font.set_bold(bold)
@@ -142,13 +142,13 @@ __all__.append('from_text')
 
 
 class Camera(object):
-    '''A camera defines what is visible. It has a width, height, full screen status,
+    """A camera defines what is visible. It has a width, height, full screen status,
     and can be moved. Moving a camera changes what is visible.
-    '''
+    """
     is_initialized = False
 #    __slots__ = ["_surface", "x", "y", "speedx", "speedy"]
     def __init__(self, width, height, full_screen=False):
-        '''Camera(pixelsWide, pixelsTall, False) makes a window; using True instead makes a full-screen display.'''
+        """Camera(pixelsWide, pixelsTall, False) makes a window; using True instead makes a full-screen display."""
         if Camera.is_initialized: raise Exception("You can only have one Camera at a time")
         # if height > 768: raise Exception("The Game Expo screens will only be 768 pixels tall")
         # if width > 1366: raise Exception("The Game Expo screens will only be 1366 pixels wide")
@@ -160,14 +160,14 @@ class Camera(object):
         self.__dict__['_y'] = 0
         Camera.is_initialized = True
     def move(self, x, y=None):
-        '''camera.move(3, -7) moves the screen's center to be 3 more pixels to the right and 7 more up'''
+        """camera.move(3, -7) moves the screen's center to be 3 more pixels to the right and 7 more up"""
         if y is None: x, y = x
         self.x += x
         self.y += y
     def draw(self, thing, *args):
-        '''camera.draw(box) draws the provided SpriteBox object
+        """camera.draw(box) draws the provided SpriteBox object
         camera.draw(image, x, y) draws the provided image centered at the provided coordinates
-        camera.draw("Hi", 12, "red", x, y) draws the text Hi in a red 12-point font at x,y'''
+        camera.draw("Hi", 12, "red", x, y) draws the text Hi in a red 12-point font at x,y"""
         if isinstance(thing, SpriteBox):
             thing.draw(self)
         elif isinstance(thing, pygame.Surface):
@@ -195,10 +195,10 @@ class Camera(object):
             raise Exception("I don't know how to draw a ",type(thing))
 
     def display(self):
-        '''Causes what has been drawn recently by calls to draw(...) to be displayed on the screen'''
+        """Causes what has been drawn recently by calls to draw(...) to be displayed on the screen"""
         pygame.display.flip()
     def clear(self, color):
-        '''Erases the screen by filling it with the given color'''
+        """Erases the screen by filling it with the given color"""
         if type(color) is str: color = pygame.Color(color)
         self._surface.fill(color)
     def __getattr__(self, name):
@@ -256,10 +256,10 @@ __all__.append('Camera')
 
 
 class SpriteBox(object):
-    '''Intended to represent a sprite (i.e., an image that can be drawn as part of a larger view) and the box that contains it. Has various collision and movement methods built in.'''
+    """Intended to represent a sprite (i.e., an image that can be drawn as part of a larger view) and the box that contains it. Has various collision and movement methods built in."""
 #    __slots__ = ["x","y","speedx","speedy","_w","_h","_key","_image","_color"]
     def __init__(self, x, y, image, color, w=None, h=None):
-        '''You should probably use the from_image, from_text, or from_color method instead of this one'''
+        """You should probably use the from_image, from_text, or from_color method instead of this one"""
         self.__dict__['x'] = x
         self.__dict__['y'] = y
         self.__dict__['speedx'] = 0
@@ -361,10 +361,10 @@ class SpriteBox(object):
             self.__dict__[name] = value
 
     def overlap(self, other, padding=0, padding2=None):
-        '''b1.overlap(b1) returns a list of 2 values such that self.move(result) will cause them to not overlap
+        """b1.overlap(b1) returns a list of 2 values such that self.move(result) will cause them to not overlap
         Returns [0,0] if there is no overlap (i.e., if b1.touches(b2) returns False
         b1.overlap(b2, 5) adds a 5-pixel padding to b1 before computing the overlap
-        b1.overlap(b2, 5, 10) adds a 5-pixel padding in x and a 10-pixel padding in y before computing the overlap'''
+        b1.overlap(b2, 5, 10) adds a 5-pixel padding in x and a 10-pixel padding in y before computing the overlap"""
         if padding2 is None: padding2 = padding
         l = other.left - self.right - padding
         r = self.left - other.right - padding
@@ -378,9 +378,9 @@ class SpriteBox(object):
         else: return [0, -b]
 
     def touches(self, other, padding=0, padding2=None):
-        '''b1.touches(b1) returns True if the two SpriteBoxes overlap, False if they do not
+        """b1.touches(b1) returns True if the two SpriteBoxes overlap, False if they do not
         b1.touches(b2, 5) adds a 5-pixel padding to b1 before computing the touch
-        b1.touches(b2, 5, 10) adds a 5-pixel padding in x and a 10-pixel padding in y before computing the touch'''
+        b1.touches(b2, 5, 10) adds a 5-pixel padding in x and a 10-pixel padding in y before computing the touch"""
         if padding2 is None: padding2 = padding
         l = other.left - self.right - padding
         r = self.left - other.right - padding
@@ -389,39 +389,39 @@ class SpriteBox(object):
         return max(l,r,t,b) <= 0
 
     def bottom_touches(self, other, padding=0, padding2=None):
-        '''b1.bottom_touches(b2) returns True if both b1.touches(b2) and b1's bottom edge is the one causing the overlap.'''
+        """b1.bottom_touches(b2) returns True if both b1.touches(b2) and b1's bottom edge is the one causing the overlap."""
         if padding2 is None: padding2 = padding
         return self.overlap(other,padding+1,padding2+1)[1] < 0
 
     def top_touches(self, other, padding=0, padding2=None):
-        '''b1.top_touches(b2) returns True if both b1.touches(b2) and b1's top edge is the one causing the overlap.'''
+        """b1.top_touches(b2) returns True if both b1.touches(b2) and b1's top edge is the one causing the overlap."""
         if padding2 is None: padding2 = padding
         return self.overlap(other,padding+1,padding2+1)[1] > 0
 
     def left_touches(self, other, padding=0, padding2=None):
-        '''b1.left_touches(b2) returns True if both b1.touches(b2) and b1's left edge is the one causing the overlap.'''
+        """b1.left_touches(b2) returns True if both b1.touches(b2) and b1's left edge is the one causing the overlap."""
         if padding2 is None: padding2 = padding
         return self.overlap(other,padding+1,padding2+1)[0] > 0
 
     def right_touches(self, other, padding=0, padding2=None):
-        '''b1.right_touches(b2) returns True if both b1.touches(b2) and b1's right edge is the one causing the overlap.'''
+        """b1.right_touches(b2) returns True if both b1.touches(b2) and b1's right edge is the one causing the overlap."""
         if padding2 is None: padding2 = padding
         return self.overlap(other,padding+1,padding2+1)[0] < 0
 
     def contains(self, x, y=None):
-        '''checks if the given point is inside this SpriteBox's bounds or not'''
+        """checks if the given point is inside this SpriteBox's bounds or not"""
         if y is None: x,y = x
         return abs(x-self.x)*2 < self._w and abs(y-self.y)*2 < self._h
 
     def move_to_stop_overlapping(self, other, padding=0, padding2=None):
-        '''b1.move_to_stop_overlapping(b2) makes the minimal change to b1's position necessary so that they no longer overlap'''
+        """b1.move_to_stop_overlapping(b2) makes the minimal change to b1's position necessary so that they no longer overlap"""
         o = self.overlap(other,padding, padding2)
         if o != [0,0]:
             self.move(o)
             if o[0] * self.speedx < 0: self.speedx = 0
             if o[1] * self.speedy < 0: self.speedy = 0
     def move_both_to_stop_overlapping(self, other, padding=0, padding2=None):
-        '''b1.move_both_to_stop_overlapping(b2) changes both b1 and b2's positions so that they no longer overlap'''
+        """b1.move_both_to_stop_overlapping(b2) changes both b1 and b2's positions so that they no longer overlap"""
         o = self.overlap(other,padding, padding2)
         if o != [0,0]:
             self.move(o[0]/2,o[1]/2)
@@ -435,17 +435,17 @@ class SpriteBox(object):
 
 
     def move(self, x, y=None):
-        '''change position by the given amount in x and y. If only x given, assumed to be a point [x,y]'''
+        """change position by the given amount in x and y. If only x given, assumed to be a point [x,y]"""
         if y is None: x, y = x
         self.x += x
         self.y += y
 
     def move_speed(self):
-        '''change position by the current speed field of the SpriteBox object'''
+        """change position by the current speed field of the SpriteBox object"""
         self.move(self.speedx, self.speedy)
 
     def full_size(self):
-        '''change size of this SpriteBox to be the original size of the source image'''
+        """change size of this SpriteBox to be the original size of the source image"""
         if self.__dict__['_key'] is None: return
         key = self.__dict__['_key']
         self._set_key(key[0],key[1],0,0,key[4])
@@ -457,15 +457,15 @@ class SpriteBox(object):
         return '%dx%d SpriteBox centered at %d,%d' % (self._w, self._h, self.x, self.y)
 
     def copy_at(self, newx, newy):
-        '''Make a new SpriteBox just like this one but at the given location instead of here'''
+        """Make a new SpriteBox just like this one but at the given location instead of here"""
         return SpriteBox(newx, newy, self._image, self._color, self._w, self._h)
     def copy(self):
-        '''Make a new SpriteBox just like this one and in the same location'''
+        """Make a new SpriteBox just like this one and in the same location"""
         return self.copy_at(self.x, self.y)
 
     def scale_by(self, multiplier):
-        '''Change the size of this SpriteBox by the given factor
-        b1.scale_by(1) does nothing; b1.scale_by(0.4) makes b1 40% of its original width and height.'''
+        """Change the size of this SpriteBox by the given factor
+        b1.scale_by(1) does nothing; b1.scale_by(0.4) makes b1 40% of its original width and height."""
         if self.__dict__['_key'] is None:
             self._w *= multiplier
             self._h *= multiplier
@@ -474,8 +474,8 @@ class SpriteBox(object):
             self._set_key(key[0], key[1], key[2]*multiplier, key[3]*multiplier, key[4])
 
     def draw(self, surface):
-        '''b1.draw(camera) is the same as saying camera.draw(b1)
-        b1.draw(image) draws a copy of b1 on the image proivided'''
+        """b1.draw(camera) is the same as saying camera.draw(b1)
+        b1.draw(image) draws a copy of b1 on the image proivided"""
         if isinstance(surface, Camera):
             if self.__dict__['_color'] is not None:
                 region = self.rect.move(-surface._x, -surface._y)
@@ -489,16 +489,16 @@ class SpriteBox(object):
             elif self.__dict__['_image'] is not None:
                 surface.blit(self._image, self.topleft)
     def flip(self):
-        '''mirrors the SpriteBox left-to-right. 
+        """mirrors the SpriteBox left-to-right. 
         Mirroring top-to-bottom can be accomplished by
             b1.rotate(180)
-            b1.flip()'''
+            b1.flip()"""
         if self.__dict__['_key'] is None: return
         key = self.__dict__['_key']
         self._set_key(key[0], not key[1], *key[2:])
 
     def rotate(self, angle):
-        '''Rotates the SpriteBox by the given angle (in degrees).'''
+        """Rotates the SpriteBox by the given angle (in degrees)."""
         if self.__dict__['_key'] is None: return
         key = self.__dict__['_key']
         self._set_key(key[0], key[1], key[2], key[3], key[4]+angle)
@@ -508,7 +508,7 @@ __all__.append('SpriteBox')
 _timeron = False
 _timerfps = 0
 def timer_loop(fps, callback, limit=None):
-    '''Requests that pygame call the provided function fps times a second
+    """Requests that pygame call the provided function fps times a second
     fps: a number between 1 and 60
     callback: a function that accepts a set of keys pressed since the last tick
     limit: if given, will only run for that many fames and then return True
@@ -525,7 +525,7 @@ def timer_loop(fps, callback, limit=None):
         camera.display()
     
     gamebox.timer_loop(30, tick)
-    ----'''
+    ----"""
     global _timeron, _timerfps
     keys = set([])
     if fps > 60: fps = 60
@@ -550,14 +550,14 @@ def timer_loop(fps, callback, limit=None):
     return limit == frames
 
 def pause():
-    '''Pauses the timer; an error if there is no timer to pause'''
+    """Pauses the timer; an error if there is no timer to pause"""
     if not _timeron: raise Exception("Cannot pause a timer before calling timer_loop(fps, callback)")
     pygame.time.set_timer(pygame.USEREVENT, 0)
 
 __all__.append('pause')
 
 def unpause():
-    '''Unpauses the timer; an error if there is no timer to unpause'''
+    """Unpauses the timer; an error if there is no timer to unpause"""
     if not _timeron: raise Exception("Cannot pause a timer before calling timer_loop(fps, callback)")
     pygame.time.set_timer(pygame.USEREVENT, int(1000/_timerfps))
 
@@ -565,14 +565,14 @@ __all__.append('unpause')
 
 
 def stop_loop():
-    '''Completely quits one timer_loop or keys_loop, usually ending the program'''
+    """Completely quits one timer_loop or keys_loop, usually ending the program"""
     pygame.event.post(pygame.event.Event(pygame.QUIT))
 
 __all__.append('stop_loop')
 
 
 def keys_loop(callback):
-    '''Requests that pygame call the provided function each time a key is pressed
+    """Requests that pygame call the provided function each time a key is pressed
     callback: a function that accepts the key pressed
     ----
     def onPress(key):
@@ -584,7 +584,7 @@ def keys_loop(callback):
         camera.display()
     
     gamebox.keys_loop(onPress)
-    ----'''
+    ----"""
     while True:
         event = pygame.event.wait()
         if event.type == pygame.QUIT: break
