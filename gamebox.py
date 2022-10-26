@@ -14,12 +14,12 @@ import pygame
 
 
 __all__ = [
+    'Camera',
+    'SpriteBox',
     'load_sprite_sheet',
     'from_image',
     'from_color',
     'from_text',
-    'Camera',
-    'SpriteBox',
     'pause',
     'unpause',
     'stop_loop',
@@ -29,136 +29,9 @@ __all__ = [
 
 pygame.init()
 
-# a cache to avoid loading images many time
-_known_images = {}
-
-
-def _image(key, flip=False, w=0, h=0, angle=0):
-    """A method for loading images, caching them, and flipping them"""
-    if '__hash__' not in dir(key):
-        key = id(key)
-    angle, w, h = int(angle), int(w), int(h)
-    ans = None
-    if (key, flip, w, h, angle) in _known_images:
-        ans = _known_images[(key, flip, w, h, angle)]
-    elif angle != 0:
-        base = _image(key, flip, w, h)
-        img = pygame.transform.rotozoom(base, angle, 1)
-        _known_images[(key, flip, w, h, angle)] = img
-        ans = img
-    elif w != 0 or h != 0:
-        base = _image(key, flip)
-        img = pygame.transform.smoothscale(base, (w, h))
-        _known_images[(key, flip, w, h, angle)] = img
-        ans = img
-    elif flip:
-        base = _image(key)
-        img = pygame.transform.flip(base, True, False)
-        _known_images[(key, flip, w, h, angle)] = img
-        ans = img
-    else:
-        img, _ = _get_image(key)
-        _known_images[(key, flip, w, h, angle)] = img
-        ans = img
-    if w == 0 and h == 0:
-        if angle != 0:
-            tmp = _image(key, flip, w, h)
-        else:
-            tmp = ans
-        _known_images[(key, flip, tmp.get_width(), tmp.get_height(), angle)] = ans
-    return ans
-
-
-def _image_from_url(url):
-    """a method for loading images from urls by first saving them locally"""
-    filename = os.path.basename(url)
-    if not os.path.exists(filename):
-        if '://' not in url: url = 'http://' + url
-        urlretrieve(url, filename)
-    image, filename = _image_from_file(filename)
-    return image, filename
-
-
-def _image_from_file(filename):
-    """a method for loading images from files"""
-    image = pygame.image.load(filename).convert_alpha()
-    _known_images[filename] = image
-    _known_images[(image.get_width(), image.get_height(), filename)] = image
-    return image, filename
-
-
-def _get_image(thing):
-    """a method for loading images from cache, then file, then url"""
-    if thing in _known_images: return _known_images[thing], thing
-    sid = '__id__' + str(id(thing))
-    if sid in _known_images: return _known_images[sid], sid
-    if type(thing) is str:
-        if os.path.exists(thing): return _image_from_file(thing)
-        return _image_from_url(thing)
-    _known_images[sid] = thing
-    _known_images[(thing.get_width(), thing.get_height(), sid)] = thing
-    return thing, sid
-
-
-def load_sprite_sheet(url_or_filename, rows, columns):
-    """Loads a sprite sheet. Assumes the sheet has rows-by-columns evenly-spaced images and returns a list of those images."""
-    sheet, key = _get_image(url_or_filename)
-    height = sheet.get_height() / rows
-    width = sheet.get_width() / columns
-    frames = []
-    for row in range(rows):
-        for col in range(columns):
-            clip = pygame.Rect(col * width, row * height, width, height)
-            frame = sheet.subsurface(clip)
-            frames.append(frame)
-    return frames
-
-
-def from_image(x, y, filename_or_url):
-    """Creates a SpriteBox object at the given location from the provided filename or url"""
-    image, key = _get_image(filename_or_url)
-    return SpriteBox(x, y, image, None)
-
-
-def from_color(x, y, color, width, height):
-    """Creates a SpriteBox object at the given location with the given color, width, and height"""
-    return SpriteBox(x, y, None, color, width, height)
-
-
-def from_circle(x, y, color, radius, *args):
-    """Creates a SpriteBox object at the given location filled with a circle.
-    from_circle(x,y,color,radius,color2,radius2,color3,radius3,...) works too; the largest circle must come first"""
-    img = pygame.surface.Surface((radius * 2, radius * 2), pygame.SRCALPHA, 32)
-    if type(color) is str: color = pygame.Color(color)
-    pygame.draw.circle(img, color, (radius, radius), radius)
-    for i in range(1, len(args), 2):
-        color = args[i - 1]
-        if type(color) is str: color = pygame.Color(color)
-        pygame.draw.circle(img, color, (radius, radius), args[i])
-    return SpriteBox(x, y, img, None)
-
-
-def from_polygon(x, y, color, *pts):
-    """Creates a SpriteBox of minimal size to store the given points.
-    Note that it will be centered; adding the same offset to all points does not change the polygon."""
-    x0 = min(x for x, y in pts)
-    y0 = min(y for x, y in pts)
-    w = max(x for x, y in pts) - x0
-    h = max(y for x, y in pts) - y0
-    img = pygame.surface.Surface((w, h), pygame.SRCALPHA, 32)
-    if type(color) is str: color = pygame.Color(color)
-    pygame.draw.polygon(img, color, [(x - x0, y - y0) for x, y in pts])
-    return SpriteBox(x, y, img, None)
-
-
-def from_text(x, y, text, fontsize, color, bold=False, italic=False):
-    """Creates a SpriteBox object at the given location with the given text as its content"""
-    # always use default font. Earlier versions allowed others, but this proved platform-dependent
-    font = pygame.font.Font(None, fontsize)
-    font.set_bold(bold)
-    font.set_italic(italic)
-    if type(color) is str: color = pygame.Color(color)
-    return from_image(x, y, font.render(text, True, color))
+_known_images = {}  # a cache to avoid loading images many time
+_timeron = False
+_timerfps = 0
 
 
 class Camera(object):
@@ -562,8 +435,132 @@ class SpriteBox(object):
         self._set_key(key[0], key[1], key[2], key[3], key[4] + angle)
 
 
-_timeron = False
-_timerfps = 0
+def _image(key, flip=False, w=0, h=0, angle=0):
+    """A method for loading images, caching them, and flipping them"""
+    if '__hash__' not in dir(key):
+        key = id(key)
+    angle, w, h = int(angle), int(w), int(h)
+    ans = None
+    if (key, flip, w, h, angle) in _known_images:
+        ans = _known_images[(key, flip, w, h, angle)]
+    elif angle != 0:
+        base = _image(key, flip, w, h)
+        img = pygame.transform.rotozoom(base, angle, 1)
+        _known_images[(key, flip, w, h, angle)] = img
+        ans = img
+    elif w != 0 or h != 0:
+        base = _image(key, flip)
+        img = pygame.transform.smoothscale(base, (w, h))
+        _known_images[(key, flip, w, h, angle)] = img
+        ans = img
+    elif flip:
+        base = _image(key)
+        img = pygame.transform.flip(base, True, False)
+        _known_images[(key, flip, w, h, angle)] = img
+        ans = img
+    else:
+        img, _ = _get_image(key)
+        _known_images[(key, flip, w, h, angle)] = img
+        ans = img
+    if w == 0 and h == 0:
+        if angle != 0:
+            tmp = _image(key, flip, w, h)
+        else:
+            tmp = ans
+        _known_images[(key, flip, tmp.get_width(), tmp.get_height(), angle)] = ans
+    return ans
+
+
+def _image_from_url(url):
+    """a method for loading images from urls by first saving them locally"""
+    filename = os.path.basename(url)
+    if not os.path.exists(filename):
+        if '://' not in url: url = 'http://' + url
+        urlretrieve(url, filename)
+    image, filename = _image_from_file(filename)
+    return image, filename
+
+
+def _image_from_file(filename):
+    """a method for loading images from files"""
+    image = pygame.image.load(filename).convert_alpha()
+    _known_images[filename] = image
+    _known_images[(image.get_width(), image.get_height(), filename)] = image
+    return image, filename
+
+
+def _get_image(thing):
+    """a method for loading images from cache, then file, then url"""
+    if thing in _known_images: return _known_images[thing], thing
+    sid = '__id__' + str(id(thing))
+    if sid in _known_images: return _known_images[sid], sid
+    if type(thing) is str:
+        if os.path.exists(thing): return _image_from_file(thing)
+        return _image_from_url(thing)
+    _known_images[sid] = thing
+    _known_images[(thing.get_width(), thing.get_height(), sid)] = thing
+    return thing, sid
+
+
+def load_sprite_sheet(url_or_filename, rows, columns):
+    """Loads a sprite sheet. Assumes the sheet has rows-by-columns evenly-spaced images and returns a list of those images."""
+    sheet, key = _get_image(url_or_filename)
+    height = sheet.get_height() / rows
+    width = sheet.get_width() / columns
+    frames = []
+    for row in range(rows):
+        for col in range(columns):
+            clip = pygame.Rect(col * width, row * height, width, height)
+            frame = sheet.subsurface(clip)
+            frames.append(frame)
+    return frames
+
+
+def from_image(x, y, filename_or_url):
+    """Creates a SpriteBox object at the given location from the provided filename or url"""
+    image, key = _get_image(filename_or_url)
+    return SpriteBox(x, y, image, None)
+
+
+def from_color(x, y, color, width, height):
+    """Creates a SpriteBox object at the given location with the given color, width, and height"""
+    return SpriteBox(x, y, None, color, width, height)
+
+
+def from_circle(x, y, color, radius, *args):
+    """Creates a SpriteBox object at the given location filled with a circle.
+    from_circle(x,y,color,radius,color2,radius2,color3,radius3,...) works too; the largest circle must come first"""
+    img = pygame.surface.Surface((radius * 2, radius * 2), pygame.SRCALPHA, 32)
+    if type(color) is str: color = pygame.Color(color)
+    pygame.draw.circle(img, color, (radius, radius), radius)
+    for i in range(1, len(args), 2):
+        color = args[i - 1]
+        if type(color) is str: color = pygame.Color(color)
+        pygame.draw.circle(img, color, (radius, radius), args[i])
+    return SpriteBox(x, y, img, None)
+
+
+def from_polygon(x, y, color, *pts):
+    """Creates a SpriteBox of minimal size to store the given points.
+    Note that it will be centered; adding the same offset to all points does not change the polygon."""
+    x0 = min(x for x, y in pts)
+    y0 = min(y for x, y in pts)
+    w = max(x for x, y in pts) - x0
+    h = max(y for x, y in pts) - y0
+    img = pygame.surface.Surface((w, h), pygame.SRCALPHA, 32)
+    if type(color) is str: color = pygame.Color(color)
+    pygame.draw.polygon(img, color, [(x - x0, y - y0) for x, y in pts])
+    return SpriteBox(x, y, img, None)
+
+
+def from_text(x, y, text, fontsize, color, bold=False, italic=False):
+    """Creates a SpriteBox object at the given location with the given text as its content"""
+    # always use default font. Earlier versions allowed others, but this proved platform-dependent
+    font = pygame.font.Font(None, fontsize)
+    font.set_bold(bold)
+    font.set_italic(italic)
+    if type(color) is str: color = pygame.Color(color)
+    return from_image(x, y, font.render(text, True, color))
 
 
 def timer_loop(fps, callback, limit=None):
