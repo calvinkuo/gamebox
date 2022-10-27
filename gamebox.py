@@ -1,16 +1,22 @@
-# A library file for simplifying pygame interaction.  You MUST place this file in the same directory as your game py files.
+"""A library file for simplifying pygame interaction.
+You MUST place this file in the same directory as your game py files.
 
-"""This code is the original work of Luther Tychonievich, who releases it
-into the public domain.
+This code is the original work of Luther Tychonievich, who releases it into the public domain.
 
-As a courtesy, Luther would appreciate it if you acknowledged him in any work
-that benefited from this code."""
+As a courtesy, Luther would appreciate it if you acknowledged him in any work that benefited from this code."""
+
+from __future__ import annotations
 
 import os.path
 import sys
+from collections.abc import Sequence
+from functools import singledispatchmethod
+from typing import Union
 from urllib.request import urlretrieve
 
 import pygame
+
+pygame.init()
 
 
 __all__ = [
@@ -26,142 +32,230 @@ __all__ = [
     'keys_loop'
 ]
 
+# Typing hints copied from pygame._common
+_RgbaOutput = tuple[int, int, int, int]
+_ColorValue = Union[pygame.Color, int, str, tuple[int, int, int], list[int], _RgbaOutput]
+_Coordinate = Union[tuple[float, float], Sequence[float], pygame.math.Vector2]
 
-pygame.init()
-
+# Module-level private globals
 _known_images = {}  # a cache to avoid loading images many time
 _timeron = False
 _timerfps = 0
 
 
 class Camera:
-    """A camera defines what is visible. It has a width, height, full screen status,
-    and can be moved. Moving a camera changes what is visible.
-    """
+    """A camera defines what is visible.
+    It has a width, height, full screen status, and can be moved.
+    Moving a camera changes what is visible.
+    You can add as many other attributes as you want, by (e.g.) saying ``camera.number_of_coins_found = 5``."""
+
     is_initialized = False
 
-    #    __slots__ = ["_surface", "x", "y", "speedx", "speedy"]
-    def __init__(self, width, height, full_screen=False):
+    def __init__(self, width: int, height: int, full_screen: bool = False) -> None:
         """Camera(pixelsWide, pixelsTall, False) makes a window; using True instead makes a full-screen display."""
-        if Camera.is_initialized: raise Exception("You can only have one Camera at a time")
-        # if height > 768: raise Exception("The Game Expo screens will only be 768 pixels tall")
-        # if width > 1366: raise Exception("The Game Expo screens will only be 1366 pixels wide")
+        if Camera.is_initialized:
+            raise RuntimeError("You can only have one Camera at a time")
         if full_screen:
-            self.__dict__['_surface'] = pygame.display.set_mode([width, height], pygame.FULLSCREEN)
+            self._surface: pygame.Surface = pygame.display.set_mode((width, height), pygame.FULLSCREEN)
         else:
-            self.__dict__['_surface'] = pygame.display.set_mode([width, height])
-        self.__dict__['_x'] = 0
-        self.__dict__['_y'] = 0
+            self._surface: pygame.Surface = pygame.display.set_mode((width, height))
+        self._x: float = 0.0
+        self._y: float = 0.0
         Camera.is_initialized = True
 
-    def move(self, x, y=None):
-        """camera.move(3, -7) moves the screen's center to be 3 more pixels to the right and 7 more up"""
-        if y is None: x, y = x
+    @singledispatchmethod
+    def move(self, x: float, y: float) -> None:
+        """``camera.move(3, -7)`` moves the screen's center to be 3 more pixels to the right and 7 more up."""
         self.x += x
         self.y += y
 
-    def draw(self, thing, *args):
-        """camera.draw(box) draws the provided SpriteBox object
-        camera.draw(image, x, y) draws the provided image centered at the provided coordinates
-        camera.draw("Hi", 12, "red", x, y) draws the text Hi in a red 12-point font at x,y"""
+    @move.register(tuple)
+    @move.register(Sequence)
+    @move.register(pygame.math.Vector2)
+    def _(self, coords: _Coordinate) -> None:
+        if not isinstance(coords, pygame.math.Vector2) and len(coords) > 2:
+            raise ValueError(f"Expected 2 coordinates, but got {len(coords)} instead")
+        self.x += coords[0]
+        self.y += coords[1]
+
+    def draw(self, thing: SpriteBox | pygame.Surface | str, *args) -> None:
+        """* ``camera.draw(box)`` draws the provided SpriteBox object.
+        * ``camera.draw(image, x, y)`` draws the provided image centered at the provided coordinates.
+        * ``camera.draw("Hi", 12, "red", x, y)`` draws the text Hi in a red 12-point font at x,y."""
         if isinstance(thing, SpriteBox):
-            thing.draw(self)
+            if thing.color is not None:
+                region = thing.rect.move(-self._x, -self._y)
+                region = region.clip(self._surface.get_rect())
+                self._surface.fill(thing.color, region)
+            elif thing.image is not None:
+                self._surface.blit(thing.image, [thing.left - self._x, thing.top - self._y])
         elif isinstance(thing, pygame.Surface):
             try:
                 if len(args) == 1:
                     x, y = args[0]
                 else:
                     x, y = args[:2]
-                self._surface.blit(thing, [x - thing.get_width() / 2, y - thing.get_height() / 2])
-                ok = True
-            except BaseException as e:
-                ok = False
-            if not ok:
-                raise Exception("Wrong arguments; try .draw(surface, [x,y])")
+                self._surface.blit(thing, (x - thing.get_width() / 2, y - thing.get_height() / 2))
+            except (IndexError, TypeError):
+                raise TypeError("Wrong arguments; try .draw(surface, [x,y])")
         elif type(thing) is str:
             try:
                 size = args[0]
                 color = args[1]
-                if type(color) is str: color = pygame.Color(color)
                 self.draw(pygame.font.Font(None, size).render(thing, True, color), *args[2:])
-                ok = True
-            except BaseException as e:
-                ok = False
-            if not ok:
-                raise Exception("Wrong arguments; try .draw(text, fontSize, color, [x,y])", e)
+            except (IndexError, TypeError):
+                raise TypeError("Wrong arguments; try .draw(text, fontSize, color, [x,y])")
         else:
-            raise Exception("I don't know how to draw a ", type(thing))
+            raise TypeError("I don't know how to draw a ", type(thing))
 
-    def display(self):
-        """Causes what has been drawn recently by calls to draw(...) to be displayed on the screen"""
+    @staticmethod
+    def display() -> None:
+        """Causes what has been drawn recently by calls to ``draw(...)`` to be displayed on the screen."""
         pygame.display.flip()
 
-    def clear(self, color):
-        """Erases the screen by filling it with the given color"""
-        if type(color) is str: color = pygame.Color(color)
+    def clear(self, color: _ColorValue) -> None:
+        """Erases the screen by filling it with the given color."""
         self._surface.fill(color)
 
-    def __getattr__(self, name):
-        if name in self.__dict__: return self.__dict__[name]
-        x, y, w, h = self._x, self._y, self._surface.get_width(), self._surface.get_height()
-        if name == 'left': return x
-        if name == 'right': return x + w
-        if name == 'top': return y
-        if name == 'bottom': return y + h
-        if name == 'x': return x + w / 2
-        if name == 'y': return y + h / 2
-        if name == 'center': return x + w / 2, y + h / 2
-        if name == 'topleft': return x, y
-        if name == 'topright': return x + w, y
-        if name == 'bottomleft': return x, y + h
-        if name == 'bottomright': return x + w, y + h
-        if name == 'width': return w
-        if name == 'height': return h
-        if name == 'size': return w, h
-        if name == 'mousex': return pygame.mouse.get_pos()[0] + self._x
-        if name == 'mousey': return pygame.mouse.get_pos()[1] + self._y
-        if name == 'mouse': return pygame.mouse.get_pos()[0] + self._x, pygame.mouse.get_pos()[1] + self._y
-        if name == 'mouseclick': return any(pygame.mouse.get_pressed())
-        raise Exception("There is no '" + name + "' in a Camera object")
+    @property
+    def left(self) -> float:
+        """The x coordinate of the left edge of the viewable area."""
+        return self._x
 
-    def __setattr__(self, name, value):
-        if name in self.__dict__:
-            self.__dict__[name] = value
-            return
-        w, h = self._surface.get_width(), self._surface.get_height()
-        if name == 'left':
-            self._x = value
-        elif name == 'right':
-            self._x = value - w
-        elif name == 'top':
-            self._y = value
-        elif name == 'bottom':
-            self._y = value - h
-        elif name == 'x':
-            self._x = value - w / 2
-        elif name == 'y':
-            self._y = value - h / 2
-        elif name == 'center':
-            self._x, self._y = value[0] - w / 2, value[1] - h / 2
-        elif name == 'topleft':
-            self._x, self._y = value[0], value[1]
-        elif name == 'topright':
-            self._x, self._y = value[0] - w, value[1]
-        elif name == 'bottomleft':
-            self._x, self._y = value[0], value[1] - h
-        elif name == 'bottomright':
-            self._x, self._y = value[0] - w, value[1] - h
-        elif name in ['width', 'height', 'size', 'mouse', 'mousex', 'mousey', 'mouseclick']:
-            raise Exception("You cannot change the '" + name + "' of a Camera object")
-        else:
-            sys.stderr.write("INFO: added \"" + name + "\" to camera")
-            self.__dict__[name] = value
+    @left.setter
+    def left(self, value: float) -> None:
+        self._x = value
 
-    def __repr__(self):
+    @property
+    def right(self) -> float:
+        """The x coordinate of the right edge of the viewable area."""
+        return self._x + self.width
+
+    @right.setter
+    def right(self, value: float) -> None:
+        self._x = value - self.width
+
+    @property
+    def top(self) -> float:
+        """The y coordinate of the top edge of the viewable area."""
+        return self._y
+
+    @top.setter
+    def top(self, value: float) -> None:
+        self._y = value
+
+    @property
+    def bottom(self) -> float:
+        """The y coordinate of the bottom edge of the viewable area."""
+        return self._y + self.height
+
+    @bottom.setter
+    def bottom(self, value: float) -> None:
+        self._y = value - self.height
+
+    @property
+    def x(self) -> float:
+        """The x coordinate of the center of the viewable area."""
+        return self._x + self.width / 2
+
+    @x.setter
+    def x(self, value: float) -> None:
+        self._x = value - self.width / 2
+
+    @property
+    def y(self) -> float:
+        """The y coordinate of the center of the viewable area."""
+        return self._y + self.height / 2
+
+    @y.setter
+    def y(self, value: float) -> None:
+        self._y = value - self.height / 2
+
+    @property
+    def center(self) -> tuple[float, float]:
+        """The (x, y) coordinates of the center of the viewable area."""
+        return self.x, self.y
+
+    @center.setter
+    def center(self, value: tuple[float, float] | Sequence[float]) -> None:
+        self.x, self.y = value
+
+    @property
+    def topleft(self) -> tuple[float, float]:
+        """The (x, y) coordinates of the top-left corner of the viewable area."""
+        return self.left, self.top
+
+    @topleft.setter
+    def topleft(self, value: _Coordinate) -> None:
+        self.left, self.top = value
+
+    @property
+    def topright(self) -> tuple[float, float]:
+        """The (x, y) coordinates of the top-right corner of the viewable area."""
+        return self.right, self.top
+
+    @topright.setter
+    def topright(self, value: _Coordinate) -> None:
+        self.right, self.top = value
+
+    @property
+    def bottomleft(self) -> tuple[float, float]:
+        """The (x, y) coordinates of the bottom-left corner of the viewable area."""
+        return self.left, self.bottom
+
+    @bottomleft.setter
+    def bottomleft(self, value: _Coordinate) -> None:
+        self.left, self.bottom = value
+
+    @property
+    def bottomright(self) -> tuple[float, float]:
+        """The (x, y) coordinates of the bottom-right corner of the viewable area."""
+        return self.right, self.bottom
+
+    @bottomright.setter
+    def bottomright(self, value: _Coordinate) -> None:
+        self.right, self.bottom = value
+
+    @property
+    def width(self) -> int:
+        """The width of the viewable area."""
+        return self._surface.get_width()
+
+    @property
+    def height(self) -> int:
+        """The height of the viewable area."""
+        return self._surface.get_height()
+
+    @property
+    def size(self) -> tuple[int, int]:
+        """The size of the viewable area, in the order (width, height)."""
+        return self.width, self.height
+
+    @property
+    def mousex(self) -> float:
+        """The x coordinate of the mouse cursor."""
+        return pygame.mouse.get_pos()[0] + self._x
+
+    @property
+    def mousey(self) -> float:
+        """The x coordinate of the mouse cursor."""
+        return pygame.mouse.get_pos()[1] + self._y
+
+    @property
+    def mouse(self) -> tuple[float, float]:
+        """The (x, y) coordinates of the mouse cursor."""
+        return pygame.mouse.get_pos()[0] + self._x, pygame.mouse.get_pos()[1] + self._y
+
+    @property
+    def mouseclick(self) -> bool:
+        """Whether any of the mouse buttons are being pressed."""
+        return any(pygame.mouse.get_pressed())
+
+    def __repr__(self) -> str:
         return str(self)
 
-    def __str__(self):
-        return '%dx%d Camera centered at %d,%d' % (self.width, self.height, self.x, self.y)
+    def __str__(self) -> str:
+        return f'{self.width}x{self.height} Camera centered at {self.x},{self.y}'
 
 
 class SpriteBox:
@@ -306,52 +400,75 @@ class SpriteBox:
         else:
             return [0, -b]
 
-    def touches(self, other, padding=0, padding2=None):
-        """b1.touches(b1) returns True if the two SpriteBoxes overlap, False if they do not
-        b1.touches(b2, 5) adds a 5-pixel padding to b1 before computing the touch
-        b1.touches(b2, 5, 10) adds a 5-pixel padding in x and a 10-pixel padding in y before computing the touch"""
-        if padding2 is None: padding2 = padding
+    def touches(self, other: SpriteBox, padding: float = 0, padding2: float = None) -> bool:
+        """``b1.touches(b1)`` returns True if the two SpriteBoxes overlap, False if they do not.
+        ``b1.touches(b2, 5)`` adds a 5-pixel padding to b1 before computing the touch.
+        ``b1.touches(b2, 5, 10)`` adds a 5-pixel padding in x and a 10-pixel padding in y before computing the touch."""
+        if padding2 is None:
+            padding2 = padding
         l = other.left - self.right - padding
         r = self.left - other.right - padding
         t = other.top - self.bottom - padding2
         b = self.top - other.bottom - padding2
         return max(l, r, t, b) <= 0
 
-    def bottom_touches(self, other, padding=0, padding2=None):
-        """b1.bottom_touches(b2) returns True if both b1.touches(b2) and b1's bottom edge is the one causing the overlap."""
-        if padding2 is None: padding2 = padding
+    def bottom_touches(self, other: SpriteBox, padding: float = 0, padding2: float = None) -> bool:
+        """``b1.bottom_touches(b2)`` returns True if both ``b1.touches(b2)``
+        and b1's bottom edge is the one causing the overlap."""
+        if padding2 is None:
+            padding2 = padding
         return self.overlap(other, padding + 1, padding2 + 1)[1] < 0
 
-    def top_touches(self, other, padding=0, padding2=None):
-        """b1.top_touches(b2) returns True if both b1.touches(b2) and b1's top edge is the one causing the overlap."""
-        if padding2 is None: padding2 = padding
+    def top_touches(self, other: SpriteBox, padding: float = 0, padding2: float = None) -> bool:
+        """``b1.top_touches(b2)`` returns True if both ``b1.touches(b2)``
+        and b1's top edge is the one causing the overlap."""
+        if padding2 is None:
+            padding2 = padding
         return self.overlap(other, padding + 1, padding2 + 1)[1] > 0
 
-    def left_touches(self, other, padding=0, padding2=None):
-        """b1.left_touches(b2) returns True if both b1.touches(b2) and b1's left edge is the one causing the overlap."""
-        if padding2 is None: padding2 = padding
+    def left_touches(self, other: SpriteBox, padding: float = 0, padding2: float = None) -> bool:
+        """``b1.left_touches(b2)`` returns True if both ``b1.touches(b2)``
+        and b1's left edge is the one causing the overlap."""
+        if padding2 is None:
+            padding2 = padding
         return self.overlap(other, padding + 1, padding2 + 1)[0] > 0
 
-    def right_touches(self, other, padding=0, padding2=None):
-        """b1.right_touches(b2) returns True if both b1.touches(b2) and b1's right edge is the one causing the overlap."""
-        if padding2 is None: padding2 = padding
+    def right_touches(self, other: SpriteBox, padding: float = 0, padding2: float = None) -> bool:
+        """``b1.right_touches(b2)`` returns True if both ``b1.touches(b2)``
+        and b1's right edge is the one causing the overlap."""
+        if padding2 is None:
+            padding2 = padding
         return self.overlap(other, padding + 1, padding2 + 1)[0] < 0
 
-    def contains(self, x, y=None):
-        """checks if the given point is inside this SpriteBox's bounds or not"""
-        if y is None: x, y = x
+    @singledispatchmethod
+    def contains(self, x: float, y: float = None) -> bool:
+        """Checks if the given point is inside this SpriteBox's bounds or not."""
+        if y is None:
+            x, y = x
         return abs(x - self.x) * 2 < self._w and abs(y - self.y) * 2 < self._h
 
-    def move_to_stop_overlapping(self, other, padding=0, padding2=None):
-        """b1.move_to_stop_overlapping(b2) makes the minimal change to b1's position necessary so that they no longer overlap"""
+    @contains.register(tuple)
+    @contains.register(Sequence)
+    @contains.register(pygame.math.Vector2)
+    def _(self, coords: _Coordinate) -> bool:
+        if not isinstance(coords, pygame.math.Vector2) and len(coords) > 2:
+            raise ValueError(f"Expected 2 coordinates, but got {len(coords)} instead")
+        return self.contains(coords[0], coords[1])
+
+    def move_to_stop_overlapping(self, other: SpriteBox, padding: float = 0, padding2: float = None) -> None:
+        """``b1.move_to_stop_overlapping(b2)`` makes the minimal change to b1's position necessary
+        so that they no longer overlap"""
         o = self.overlap(other, padding, padding2)
         if o != [0, 0]:
             self.move(o)
-            if o[0] * self.speedx < 0: self.speedx = 0
-            if o[1] * self.speedy < 0: self.speedy = 0
+            if o[0] * self.speedx < 0:
+                self.speedx = 0
+            if o[1] * self.speedy < 0:
+                self.speedy = 0
 
-    def move_both_to_stop_overlapping(self, other, padding=0, padding2=None):
-        """b1.move_both_to_stop_overlapping(b2) changes both b1 and b2's positions so that they no longer overlap"""
+    def move_both_to_stop_overlapping(self, other: SpriteBox, padding: float = 0, padding2: float = None) -> None:
+        """``b1.move_both_to_stop_overlapping(b2)`` changes both b1 and b2's positions
+        so that they no longer overlap"""
         o = self.overlap(other, padding, padding2)
         if o != [0, 0]:
             self.move(o[0] / 2, o[1] / 2)
@@ -363,75 +480,81 @@ class SpriteBox:
                 self.speedy = (self.speedy + other.speedy) / 2
                 other.speedy = self.speedy
 
-    def move(self, x, y=None):
-        """change position by the given amount in x and y. If only x given, assumed to be a point [x,y]"""
-        if y is None: x, y = x
+    @singledispatchmethod
+    def move(self, x: float, y: float) -> None:
+        """Change position by the given amount in x and y. If only x given, assumed to be a point [x,y]."""
         self.x += x
         self.y += y
 
-    def move_speed(self):
-        """change position by the current speed field of the SpriteBox object"""
+    @move.register(tuple)
+    @move.register(Sequence)
+    @move.register(pygame.math.Vector2)
+    def _(self, coords: _Coordinate) -> None:
+        if not isinstance(coords, pygame.math.Vector2) and len(coords) > 2:
+            raise ValueError(f"Expected 2 coordinates, but got {len(coords)} instead")
+        return self.move(coords[0], coords[1])
+
+    def move_speed(self) -> None:
+        """Change position by the current speed field of the SpriteBox object."""
         self.move(self.speedx, self.speedy)
 
-    def full_size(self):
-        """change size of this SpriteBox to be the original size of the source image"""
-        if self.__dict__['_key'] is None: return
-        key = self.__dict__['_key']
+    def full_size(self) -> None:
+        """Change size of this SpriteBox to be the original size of the source image."""
+        if self._key is None:
+            return
+        key = self._key
         self._set_key(key[0], key[1], 0, 0, key[4])
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return str(self)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return '%dx%d SpriteBox centered at %d,%d' % (self._w, self._h, self.x, self.y)
 
-    def copy_at(self, newx, newy):
-        """Make a new SpriteBox just like this one but at the given location instead of here"""
+    def copy_at(self, newx: float, newy: float) -> SpriteBox:
+        """Make a new SpriteBox just like this one but at the given location instead of here."""
         return SpriteBox(newx, newy, self._image, self._color, self._w, self._h)
 
-    def copy(self):
-        """Make a new SpriteBox just like this one and in the same location"""
+    def copy(self) -> SpriteBox:
+        """Make a new SpriteBox just like this one and in the same location."""
         return self.copy_at(self.x, self.y)
 
-    def scale_by(self, multiplier):
-        """Change the size of this SpriteBox by the given factor
-        b1.scale_by(1) does nothing; b1.scale_by(0.4) makes b1 40% of its original width and height."""
-        if self.__dict__['_key'] is None:
+    def scale_by(self, multiplier: float) -> None:
+        """Change the size of this SpriteBox by the given factor.
+        ``b1.scale_by(1)`` does nothing; ``b1.scale_by(0.4)`` makes b1 40% of its original width and height."""
+        if self._key is None:
             self._w *= multiplier
             self._h *= multiplier
         else:
-            key = self.__dict__['_key']
+            key = self._key
             self._set_key(key[0], key[1], key[2] * multiplier, key[3] * multiplier, key[4])
 
-    def draw(self, surface):
-        """b1.draw(camera) is the same as saying camera.draw(b1)
-        b1.draw(image) draws a copy of b1 on the image proivided"""
+    def draw(self, surface: Camera | pygame.Surface) -> None:
+        """``b1.draw(camera)`` is the same as saying ``camera.draw(b1)``.
+        ``b1.draw(image)`` draws a copy of b1 on the image provided."""
         if isinstance(surface, Camera):
-            if self.__dict__['_color'] is not None:
-                region = self.rect.move(-surface._x, -surface._y)
-                region = region.clip(surface._surface.get_rect())
-                surface._surface.fill(self._color, region)
-            elif self.__dict__['_image'] is not None:
-                surface._surface.blit(self._image, [self.left - surface._x, self.top - surface._y])
-        else:
-            if self.__dict__['_color'] is not None:
-                surface.fill(self._color, self.rect)
-            elif self.__dict__['_image'] is not None:
-                surface.blit(self._image, self.topleft)
+            surface.draw(self)
+        elif self._color is not None:
+            surface.fill(self._color, self.rect)
+        elif self._image is not None:
+            surface.blit(self._image, self.topleft)
 
-    def flip(self):
-        """mirrors the SpriteBox left-to-right.
-        Mirroring top-to-bottom can be accomplished by
+    def flip(self) -> None:
+        """Mirrors the SpriteBox left-to-right.
+        Mirroring top-to-bottom can be accomplished by::
+
             b1.rotate(180)
             b1.flip()"""
-        if self.__dict__['_key'] is None: return
-        key = self.__dict__['_key']
+        if self._key is None:
+            return
+        key = self._key
         self._set_key(key[0], not key[1], *key[2:])
 
-    def rotate(self, angle):
+    def rotate(self, angle: float) -> None:
         """Rotates the SpriteBox by the given angle (in degrees)."""
-        if self.__dict__['_key'] is None: return
-        key = self.__dict__['_key']
+        if self._key is None:
+            return
+        key = self._key
         self._set_key(key[0], key[1], key[2], key[3], key[4] + angle)
 
 
@@ -625,18 +748,18 @@ def stop_loop():
 
 def keys_loop(callback):
     """Requests that pygame call the provided function each time a key is pressed
-    callback: a function that accepts the key pressed
-    ----
-    def onPress(key):
-        if pygame.K_DOWN == key:
-            print 'down arrow pressed'
-        if pygame.K_a in keys:
-            print 'A key pressed'
-        camera.draw(box)
-        camera.display()
+    callback: a function that accepts the key pressed::
 
-    gamebox.keys_loop(onPress)
-    ----"""
+        def onPress(key):
+            if pygame.K_DOWN == key:
+                print 'down arrow pressed'
+            if pygame.K_a in keys:
+                print 'A key pressed'
+            camera.draw(box)
+            camera.display()
+
+        gamebox.keys_loop(onPress)
+    """
     while True:
         event = pygame.event.wait()
         if event.type == pygame.QUIT: break
