@@ -1,14 +1,14 @@
-# -*- coding: utf-8 -*-
 """A library file for simplifying pygame interaction.
 You MUST place this file in the same directory as your game py files."""
+
+# This code is the original work of Luther Tychonievich, who releases it into the public domain.
+# As a courtesy, Luther would appreciate it if you acknowledged him in any work that benefited from this code.
 
 from __future__ import annotations
 
 import os.path
 import sys
-from collections.abc import Callable, Hashable, Sequence
-from functools import singledispatchmethod
-from typing import Any, NoReturn
+from typing import Any, Callable, Dict, Hashable, List, NoReturn, Sequence, Tuple, Union
 from urllib.request import urlretrieve
 
 import pygame
@@ -30,15 +30,15 @@ __all__ = [
 ]
 
 # Typing hints copied from pygame._common
-_RgbaOutput = tuple[int, int, int, int]
-_ColorValue = pygame.Color | int | str | tuple[int, int, int] | list[int] | _RgbaOutput
-_Coordinate = tuple[float, float] | Sequence[float]  # pygame._common._Coordinate, but without pygame.math.Vector2
-_Image = pygame.surface.Surface | str
-_ImageKey = _Image | tuple[pygame.surface.Surface | str, bool, int, int, int] | tuple[int, int, str]
+_RgbaOutput = Tuple[int, int, int, int]
+_ColorValue = Union[pygame.Color, int, str, Tuple[int, int, int], List[int], _RgbaOutput]
+_Coordinate = Union[Tuple[float, float], Sequence[float]]  # pygame._common._Coordinate, but without pygame.math.Vector2
+_Image = Union[pygame.surface.Surface, str]
+_ImageKey = Union[_Image, Tuple[Union[pygame.surface.Surface, str], bool, int, int, int], Tuple[int, int, str]]
 Key = int
 
 # Module-level private globals
-_known_images: dict[_ImageKey, pygame.surface.Surface] = {}  # a cache to avoid loading images many time
+_known_images: Dict[_ImageKey, pygame.surface.Surface] = {}  # a cache to avoid loading images many time
 _timeron: bool = False
 _timerfps: int = 0
 
@@ -64,19 +64,16 @@ class Camera:
         self._y: float = 0.0
         Camera.is_initialized = True
 
-    @singledispatchmethod
-    def move(self, x: float, y: float) -> None:
+    def move(self, x: float | _Coordinate, y: float = None) -> None:
         """``camera.move(3, -7)`` moves the screen's center to be 3 more pixels to the right and 7 more up."""
-        self.x += x
-        self.y += y
-
-    @move.register(tuple)
-    @move.register(Sequence)
-    def _(self, coords: _Coordinate) -> None:
-        if len(coords) > 2:
-            raise ValueError(f"Expected 2 coordinates, but got {len(coords)} instead")
-        self.x += coords[0]
-        self.y += coords[1]
+        if y is None:
+            if len(x) > 2:
+                raise ValueError(f"Expected 2 coordinates, but got {len(x)} instead")
+            self.x += x[0]
+            self.y += x[1]
+        else:
+            self.x += x
+            self.y += y
 
     def draw(self, thing: SpriteBox | pygame.surface.Surface | str, *args) -> None:
         """* ``camera.draw(box)`` draws the provided SpriteBox object.
@@ -172,16 +169,16 @@ class Camera:
         self._y = value - self.height / 2
 
     @property
-    def center(self) -> tuple[float, float]:
+    def center(self) -> Tuple[float, float]:
         """The (x, y) coordinates of the center of the viewable area."""
         return self.x, self.y
 
     @center.setter
-    def center(self, value: tuple[float, float] | Sequence[float]) -> None:
+    def center(self, value: Tuple[float, float] | Sequence[float]) -> None:
         self.x, self.y = value
 
     @property
-    def topleft(self) -> tuple[float, float]:
+    def topleft(self) -> Tuple[float, float]:
         """The (x, y) coordinates of the top-left corner of the viewable area."""
         return self.left, self.top
 
@@ -190,7 +187,7 @@ class Camera:
         self.left, self.top = value
 
     @property
-    def topright(self) -> tuple[float, float]:
+    def topright(self) -> Tuple[float, float]:
         """The (x, y) coordinates of the top-right corner of the viewable area."""
         return self.right, self.top
 
@@ -199,7 +196,7 @@ class Camera:
         self.right, self.top = value
 
     @property
-    def bottomleft(self) -> tuple[float, float]:
+    def bottomleft(self) -> Tuple[float, float]:
         """The (x, y) coordinates of the bottom-left corner of the viewable area."""
         return self.left, self.bottom
 
@@ -208,7 +205,7 @@ class Camera:
         self.left, self.bottom = value
 
     @property
-    def bottomright(self) -> tuple[float, float]:
+    def bottomright(self) -> Tuple[float, float]:
         """The (x, y) coordinates of the bottom-right corner of the viewable area."""
         return self.right, self.bottom
 
@@ -227,7 +224,7 @@ class Camera:
         return self._surface.get_height()
 
     @property
-    def size(self) -> tuple[int, int]:
+    def size(self) -> Tuple[int, int]:
         """The size of the viewable area, in the order (width, height)."""
         return self.width, self.height
 
@@ -242,7 +239,7 @@ class Camera:
         return pygame.mouse.get_pos()[1] + self._y
 
     @property
-    def mouse(self) -> tuple[float, float]:
+    def mouse(self) -> Tuple[float, float]:
         """The (x, y) coordinates of the mouse cursor."""
         return pygame.mouse.get_pos()[0] + self._x, pygame.mouse.get_pos()[1] + self._y
 
@@ -279,7 +276,7 @@ class SpriteBox:
         self.y: float = y
         self.speedx: float = 0.0
         self.speedy: float = 0.0
-        self._key: tuple[_Image, bool, int, int, int] | None
+        self._key: Tuple[_Image, bool, int, int, int] | None
         self._image: pygame.surface.Surface | None
         self._color: _ColorValue | None
         self._w: float
@@ -353,16 +350,16 @@ class SpriteBox:
         self.y = value - self._h / 2
 
     @property
-    def center(self) -> tuple[float, float]:
+    def center(self) -> Tuple[float, float]:
         """The (x, y) coordinates of the center."""
         return self.x, self.y
 
     @center.setter
-    def center(self, value: tuple[float, float] | Sequence[float]) -> None:
+    def center(self, value: Tuple[float, float] | Sequence[float]) -> None:
         self.x, self.y = value
 
     @property
-    def topleft(self) -> tuple[float, float]:
+    def topleft(self) -> Tuple[float, float]:
         """The (x, y) coordinates of the top-left corner."""
         return self.left, self.top
 
@@ -371,7 +368,7 @@ class SpriteBox:
         self.left, self.top = value
 
     @property
-    def topright(self) -> tuple[float, float]:
+    def topright(self) -> Tuple[float, float]:
         """The (x, y) coordinates of the top-right corner."""
         return self.right, self.top
 
@@ -380,7 +377,7 @@ class SpriteBox:
         self.right, self.top = value
 
     @property
-    def bottomleft(self) -> tuple[float, float]:
+    def bottomleft(self) -> Tuple[float, float]:
         """The (x, y) coordinates of the bottom-left corner."""
         return self.left, self.bottom
 
@@ -389,7 +386,7 @@ class SpriteBox:
         self.left, self.bottom = value
 
     @property
-    def bottomright(self) -> tuple[float, float]:
+    def bottomright(self) -> Tuple[float, float]:
         """The (x, y) coordinates of the bottom-right corner."""
         return self.right, self.bottom
 
@@ -416,12 +413,12 @@ class SpriteBox:
         self.scale_by(value / self._h)
 
     @property
-    def size(self) -> tuple[float, float]:
+    def size(self) -> Tuple[float, float]:
         """The size of the box in pixels in the order (width, height)."""
         return self.width, self.height
 
     @size.setter
-    def size(self, value: tuple[float, float] | Sequence[float]) -> None:
+    def size(self, value: Tuple[float, float] | Sequence[float]) -> None:
         if self._image is not None and self._key is not None:
             key = self._key
             self._set_key(key[0], key[1], value[0], value[1], key[4])
@@ -429,12 +426,12 @@ class SpriteBox:
             self._w, self._h = value
 
     @property
-    def speed(self) -> tuple[float, float]:
+    def speed(self) -> Tuple[float, float]:
         """The speed of the box in the order (speedx, speedy)."""
         return self.speedx, self.speedy
 
     @speed.setter
-    def speed(self, value: tuple[float, float] | Sequence[float]) -> None:
+    def speed(self, value: Tuple[float, float] | Sequence[float]) -> None:
         self.speedx, self.speedy = value
 
     @property
@@ -484,7 +481,7 @@ class SpriteBox:
     def yspeed(self, value: float) -> None:
         self.speedy = value
 
-    def overlap(self, other: SpriteBox, padding: float = 0, padding2: float = None) -> list[float]:
+    def overlap(self, other: SpriteBox, padding: float = 0, padding2: float = None) -> List[float]:
         """``b1.overlap(b1)`` returns a list of 2 values such that ``self.move(result)`` will cause them to not overlap.
         Returns ``[0,0]`` if there is no overlap (i.e., if ``b1.touches(b2)`` returns False).
         ``b1.overlap(b2, 5)`` adds a 5-pixel padding to b1 before computing the overlap.
@@ -548,17 +545,14 @@ class SpriteBox:
             padding2 = padding
         return self.overlap(other, padding + 1, padding2 + 1)[0] < 0
 
-    @singledispatchmethod
-    def contains(self, x: float, y: float) -> bool:
+    def contains(self, x: float | _Coordinate, y: float = None) -> bool:
         """Checks if the given point is inside this SpriteBox's bounds or not."""
-        return abs(x - self.x) * 2 < self._w and abs(y - self.y) * 2 < self._h
-
-    @contains.register(tuple)
-    @contains.register(Sequence)
-    def _(self, coords: _Coordinate) -> bool:
-        if len(coords) > 2:
-            raise ValueError(f"Expected 2 coordinates, but got {len(coords)} instead")
-        return self.contains(coords[0], coords[1])
+        if y is None:
+            if len(x) > 2:
+                raise ValueError(f"Expected 2 coordinates, but got {len(x)} instead")
+            return self.contains(x[0], x[1])
+        else:
+            return abs(x - self.x) * 2 < self._w and abs(y - self.y) * 2 < self._h
 
     def move_to_stop_overlapping(self, other: SpriteBox, padding: float = 0, padding2: float = None) -> None:
         """``b1.move_to_stop_overlapping(b2)`` makes the minimal change to b1's position necessary
@@ -585,18 +579,16 @@ class SpriteBox:
                 self.speedy = (self.speedy + other.speedy) / 2
                 other.speedy = self.speedy
 
-    @singledispatchmethod
-    def move(self, x: float, y: float) -> None:
+    def move(self, x: float | _Coordinate, y: float = None) -> None:
         """Change position by the given amount in x and y. If only x given, assumed to be a point [x,y]."""
-        self.x += x
-        self.y += y
-
-    @move.register(tuple)
-    @move.register(Sequence)
-    def _(self, coords: _Coordinate) -> None:
-        if len(coords) > 2:
-            raise ValueError(f"Expected 2 coordinates, but got {len(coords)} instead")
-        return self.move(coords[0], coords[1])
+        if y is None:
+            if len(x) > 2:
+                raise ValueError(f"Expected 2 coordinates, but got {len(x)} instead")
+            self.x += x[0]
+            self.y += x[1]
+        else:
+            self.x += x
+            self.y += y
 
     def move_speed(self) -> None:
         """Change position by the current speed field of the SpriteBox object."""
@@ -708,7 +700,7 @@ def _image(key: _Image, flip: bool = False, w: float = 0, h: float = 0, angle: f
     return ans
 
 
-def _image_from_url(url: str) -> tuple[pygame.surface.Surface, str]:
+def _image_from_url(url: str) -> Tuple[pygame.surface.Surface, str]:
     """A method for loading images from urls by first saving them locally."""
     filename = os.path.basename(url)
     if not os.path.exists(filename):
@@ -719,7 +711,7 @@ def _image_from_url(url: str) -> tuple[pygame.surface.Surface, str]:
     return image, filename
 
 
-def _image_from_file(filename: str) -> tuple[pygame.surface.Surface, str]:
+def _image_from_file(filename: str) -> Tuple[pygame.surface.Surface, str]:
     """A method for loading images from files."""
     image = pygame.image.load(filename).convert_alpha()
     _known_images[filename] = image
@@ -727,7 +719,7 @@ def _image_from_file(filename: str) -> tuple[pygame.surface.Surface, str]:
     return image, filename
 
 
-def _get_image(thing: _ImageKey) -> tuple[pygame.surface.Surface, _ImageKey]:
+def _get_image(thing: _ImageKey) -> Tuple[pygame.surface.Surface, _ImageKey]:
     """a method for loading images from cache, then file, then url"""
     if thing in _known_images:
         return _known_images[thing], thing
@@ -747,7 +739,7 @@ def _get_image(thing: _ImageKey) -> tuple[pygame.surface.Surface, _ImageKey]:
     return thing, sid
 
 
-def load_sprite_sheet(url_or_filename: str, rows: int, columns: int) -> list[pygame.surface.Surface]:
+def load_sprite_sheet(url_or_filename: str, rows: int, columns: int) -> List[pygame.surface.Surface]:
     """Loads a sprite sheet.
     Assumes the sheet has rows-by-columns evenly-spaced images and returns a list of those images."""
     sheet, key = _get_image(url_or_filename)
@@ -871,7 +863,7 @@ def stop_loop() -> None:
     pygame.event.post(pygame.event.Event(pygame.QUIT))
 
 
-def keys_loop(callback: Callable[[list[Key]], Any]) -> None:
+def keys_loop(callback: Callable[[List[Key]], Any]) -> None:
     """Requests that pygame call the provided function each time a key is pressed
     callback: a function that accepts the key pressed::
 

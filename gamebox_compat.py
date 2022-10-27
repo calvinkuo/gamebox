@@ -1,6 +1,8 @@
-# -*- coding: utf-8 -*-
 """A library file for simplifying pygame interaction.
 You MUST place this file in the same directory as your game py files."""
+
+# This code is the original work of Luther Tychonievich, who releases it into the public domain.
+# As a courtesy, Luther would appreciate it if you acknowledged him in any work that benefited from this code.
 
 from __future__ import annotations
 
@@ -8,7 +10,7 @@ import os.path
 import sys
 from collections.abc import Callable, Hashable, Sequence
 from functools import singledispatchmethod
-from typing import Any, NoReturn
+from typing import Any, NoReturn, Union
 from urllib.request import urlretrieve
 
 import pygame
@@ -31,10 +33,10 @@ __all__ = [
 
 # Typing hints copied from pygame._common
 _RgbaOutput = tuple[int, int, int, int]
-_ColorValue = pygame.Color | int | str | tuple[int, int, int] | list[int] | _RgbaOutput
-_Coordinate = tuple[float, float] | Sequence[float]  # pygame._common._Coordinate, but without pygame.math.Vector2
-_Image = pygame.surface.Surface | str
-_ImageKey = _Image | tuple[pygame.surface.Surface | str, bool, int, int, int] | tuple[int, int, str]
+_ColorValue = Union[pygame.Color, int, str, tuple[int, int, int], list[int], _RgbaOutput]
+_Coordinate = Union[tuple[float, float], Sequence[float]]  # pygame._common._Coordinate, but without pygame.math.Vector2
+_Image = Union[pygame.surface.Surface, str]
+_ImageKey = Union[_Image, tuple[Union[pygame.surface.Surface, str], bool, int, int, int], tuple[int, int, str]]
 Key = int
 
 # Module-level private globals
@@ -596,7 +598,8 @@ class SpriteBox:
     def _(self, coords: _Coordinate) -> None:
         if len(coords) > 2:
             raise ValueError(f"Expected 2 coordinates, but got {len(coords)} instead")
-        return self.move(coords[0], coords[1])
+        self.x += coords[0]
+        self.y += coords[1]
 
     def move_speed(self) -> None:
         """Change position by the current speed field of the SpriteBox object."""
