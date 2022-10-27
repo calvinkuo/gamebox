@@ -259,15 +259,17 @@ class Camera:
 
 
 class SpriteBox:
-    """Intended to represent a sprite (i.e., an image that can be drawn as part of a larger view) and the box that contains it. Has various collision and movement methods built in."""
+    """Intended to represent a sprite (i.e., an image that can be drawn as part of a larger view)
+    and the box that contains it. Has various collision and movement methods built in."""
 
-    #    __slots__ = ["x","y","speedx","speedy","_w","_h","_key","_image","_color"]
-    def __init__(self, x, y, image, color, w=None, h=None):
+    __slots__ = ["x", "y", "speedx", "speedy", "_w", "_h", "_key", "_image", "_color"]
+
+    def __init__(self, x: float, y: float, image, color: _ColorValue, w: float = None, h: float = None):
         """You should probably use the from_image, from_text, or from_color method instead of this one"""
-        self.__dict__['x'] = x
-        self.__dict__['y'] = y
-        self.__dict__['speedx'] = 0
-        self.__dict__['speedy'] = 0
+        self.x = x
+        self.y = y
+        self.speedx = 0
+        self.speedy = 0
         if image is not None:
             self._set_key(image, False, 0, 0, 0)
             if w is not None:
@@ -278,12 +280,13 @@ class SpriteBox:
             elif h is not None:
                 self.height = h
         elif color is not None:
-            if w is None or h is None: raise Exception("must supply size of color box")
-            self.__dict__['_key'] = None
-            self.__dict__['_image'] = None
-            self.__dict__['_w'] = w
-            self.__dict__['_h'] = h
-            self.color = color
+            if w is None or h is None:
+                raise ValueError("must supply size of color box")
+            self._key = None
+            self._image = None
+            self._w = w
+            self._h = h
+            self._color = color
         pass
 
     def _set_key(self, name, flip, width, height, angle):
@@ -294,96 +297,184 @@ class SpriteBox:
         if width == 0 and height == 0:
             width = unrot.get_width()
             height = unrot.get_height()
-        self.__dict__['_key'] = (name, flip, width, height, angle)
-        self.__dict__['_image'] = _image(*self.__dict__['_key'])
-        self.__dict__['_color'] = None
-        self.__dict__['_w'] = self.__dict__['_image'].get_width()
-        self.__dict__['_h'] = self.__dict__['_image'].get_height()
+        self._key = (name, flip, width, height, angle)
+        self._image = _image(*self._key)
+        self._color = None
+        self._w = self._image.get_width()
+        self._h = self._image.get_height()
 
-    def __getattr__(self, name):
-        x, y, w, h = self.x, self.y, self._w, self._h
-        if name == 'xspeed': name = 'speedx'
-        if name == 'yspeed': name = 'speedy'
-        if name == 'left': return x - w / 2
-        if name == 'right': return x + w / 2
-        if name == 'top': return y - h / 2
-        if name == 'bottom': return y + h / 2
-        if name == 'center': return x, y
-        if name == 'topleft': return x - w / 2, y - h / 2
-        if name == 'topright': return x + w / 2, y - h / 2
-        if name == 'bottomleft': return x - w / 2, y + h / 2
-        if name == 'bottomright': return x + w / 2, y + h / 2
-        if name == 'width': return w
-        if name == 'height': return h
-        if name == 'width': return w
-        if name == 'height': return h
-        if name == 'size': return w, h
-        if name == 'speed': return self.speedx, self.speedy
-        if name == 'rect': return pygame.Rect(self.topleft, self.size)
-        if name == 'image': return self.__dict__['_image']
-        if name in self.__dict__:
-            return self.__dict__[name]
-        raise Exception("There is no '" + name + "' in a SpriteBox object")
+    @property
+    def left(self) -> float:
+        """The x coordinate of the left edge."""
+        return self.x - self._w / 2
 
-    def __setattr__(self, name, value):
-        w, h = self._w, self._h
-        if name == 'xspeed': name = 'speedx'
-        if name == 'yspeed': name = 'speedy'
-        if name in self.__dict__:
-            self.__dict__[name] = value
-        elif name == 'left':
-            self.x = value + w / 2
-        elif name == 'right':
-            self.x = value - w / 2
-        elif name == 'top':
-            self.y = value + h / 2
-        elif name == 'bottom':
-            self.y = value - h / 2
-        elif name == 'center':
-            self.x, self.y = value[0], value[1]
-        elif name == 'topleft':
-            self.x, self.y = value[0] + w / 2, value[1] + h / 2
-        elif name == 'topright':
-            self.x, self.y = value[0] - w / 2, value[1] + h / 2
-        elif name == 'bottomleft':
-            self.x, self.y = value[0] + w / 2, value[1] - h / 2
-        elif name == 'bottomright':
-            self.x, self.y = value[0] - w / 2, value[1] - h / 2
-        elif name == 'width':
-            self.scale_by(value / w)
-        elif name == 'height':
-            self.scale_by(value / h)
-        elif name == 'size':
-            if self.__dict__['_image'] is not None:
-                key = self.__dict__['_key']
-                self._set_key(key[0], key[1], value[0], value[1], key[4])
-            else:
-                self.__dict__['_w'] = value[0]
-                self.__dict__['_h'] = value[1]
-        elif name == 'speed':
-            self.speedx, self.speedy = value[0], value[1]
-        elif name == 'color':
-            self.__dict__['_image'] = None
-            self.__dict__['_key'] = None
-            if type(value) is str: value = pygame.Color(value)
-            self.__dict__['_color'] = value
-        elif name == 'image':
-            self.__dict__['_color'] = None
-            if self.__dict__['_key'] is None:
-                self._set_key(value, False, w, h, 0)
-            else:
-                key = self.__dict__['_key']
-                self._set_key(value, *key[1:])
+    @left.setter
+    def left(self, value: float) -> None:
+        self.x = value + self._w / 2
+
+    @property
+    def right(self) -> float:
+        """The x coordinate of the right edge."""
+        return self.x + self._w / 2
+
+    @right.setter
+    def right(self, value: float) -> None:
+        self.x = value - self._w / 2
+
+    @property
+    def top(self) -> float:
+        """The y coordinate of the top edge."""
+        return self.y - self._h / 2
+
+    @top.setter
+    def top(self, value: float) -> None:
+        self.y = value + self._h / 2
+
+    @property
+    def bottom(self) -> float:
+        """The y coordinate of the bottom edge."""
+        return self.y + self._h / 2
+
+    @bottom.setter
+    def bottom(self, value: float) -> None:
+        self.y = value - self._h / 2
+
+    @property
+    def center(self) -> tuple[float, float]:
+        """The (x, y) coordinates of the center."""
+        return self.x, self.y
+
+    @center.setter
+    def center(self, value: tuple[float, float] | Sequence[float]) -> None:
+        self.x, self.y = value
+
+    @property
+    def topleft(self) -> tuple[float, float]:
+        """The (x, y) coordinates of the top-left corner."""
+        return self.left, self.top
+
+    @topleft.setter
+    def topleft(self, value: _Coordinate) -> None:
+        self.left, self.top = value
+
+    @property
+    def topright(self) -> tuple[float, float]:
+        """The (x, y) coordinates of the top-right corner."""
+        return self.right, self.top
+
+    @topright.setter
+    def topright(self, value: _Coordinate) -> None:
+        self.right, self.top = value
+
+    @property
+    def bottomleft(self) -> tuple[float, float]:
+        """The (x, y) coordinates of the bottom-left corner."""
+        return self.left, self.bottom
+
+    @bottomleft.setter
+    def bottomleft(self, value: _Coordinate) -> None:
+        self.left, self.bottom = value
+
+    @property
+    def bottomright(self) -> tuple[float, float]:
+        """The (x, y) coordinates of the bottom-right corner."""
+        return self.right, self.bottom
+
+    @bottomright.setter
+    def bottomright(self, value: _Coordinate) -> None:
+        self.right, self.bottom = value
+
+    @property
+    def width(self) -> float:
+        """The width of the box in pixels."""
+        return self._w
+
+    @width.setter
+    def width(self, value: float) -> None:
+        self.scale_by(value / self._w)
+
+    @property
+    def height(self) -> float:
+        """The height of the box in pixels."""
+        return self._h
+
+    @height.setter
+    def height(self, value: float) -> None:
+        self.scale_by(value / self._h)
+
+    @property
+    def size(self) -> tuple[float, float]:
+        """The size of the box in pixels in the order (width, height)."""
+        return self.width, self.height
+
+    @size.setter
+    def size(self, value: tuple[float, float] | Sequence[float]) -> None:
+        if self._image is not None:
+            key = self._key
+            self._set_key(key[0], key[1], value[0], value[1], key[4])
         else:
-            sys.stderr.write("INFO: added \"" + name + "\" to box")
-            self.__dict__[name] = value
+            self._w, self._h = value
 
-    def overlap(self, other, padding=0, padding2=None):
-        """b1.overlap(b1) returns a list of 2 values such that self.move(result) will cause them to not overlap
-        Returns [0,0] if there is no overlap (i.e., if b1.touches(b2) returns False
-        b1.overlap(b2, 5) adds a 5-pixel padding to b1 before computing the overlap
-        b1.overlap(b2, 5, 10) adds a 5-pixel padding in x and a 10-pixel padding in y before computing the overlap"""
-        if padding2 is None: padding2 = padding
+    @property
+    def speed(self) -> tuple[float, float]:
+        """The speed of the box in the order (speedx, speedy)."""
+        return self.speedx, self.speedy
+
+    @speed.setter
+    def speed(self, value: tuple[float, float] | Sequence[float]) -> None:
+        self.speedx, self.speedy = value
+
+    @property
+    def color(self) -> _ColorValue:
+        """The color of the box."""
+        return self._color
+
+    @color.setter
+    def color(self, value: _ColorValue) -> None:
+        self._image = None
+        self._key = None
+        self._color = value
+
+    @property
+    def rect(self) -> pygame.Rect:
+        """A :py:class:`~pygame.Rect` providing the location and size of the box."""
+        return pygame.Rect(self.topleft, self.size)
+
+    @property
+    def image(self) -> pygame.Surface:
+        """A :py:class:`~pygame.Surface` representing the current look of the box."""
+        return self._image
+
+    @image.setter
+    def image(self, value):
+        key = self._key
+        self._set_key(value, *key[1:])
+
+    @property
+    def xspeed(self) -> float:
+        """Alias of ``speedx``."""
+        return self.speedx
+
+    @xspeed.setter
+    def xspeed(self, value: float) -> None:
+        self.speedx = value
+
+    @property
+    def yspeed(self) -> float:
+        """Alias of ``speedy``."""
+        return self.speedy
+
+    @yspeed.setter
+    def yspeed(self, value: float) -> None:
+        self.speedy = value
+
+    def overlap(self, other: SpriteBox, padding: float = 0, padding2: float = None) -> list[float, float]:
+        """``b1.overlap(b1)`` returns a list of 2 values such that ``self.move(result)`` will cause them to not overlap.
+        Returns ``[0,0]`` if there is no overlap (i.e., if ``b1.touches(b2)`` returns False)
+        ``b1.overlap(b2, 5)`` adds a 5-pixel padding to b1 before computing the overlap
+        ``b1.overlap(b2, 5, 10)`` adds a 5-pixel padding in x and a 10-pixel padding in y before computing the overlap"""
+        if padding2 is None:
+            padding2 = padding
         l = other.left - self.right - padding
         r = self.left - other.right - padding
         t = other.top - self.bottom - padding2
