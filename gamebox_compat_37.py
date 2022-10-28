@@ -36,9 +36,10 @@ __all__ = [
 _RgbaOutput = Tuple[int, int, int, int]
 _ColorValue = Union[pygame.Color, int, str, Tuple[int, int, int], List[int], _RgbaOutput]
 _Coordinate = Union[Tuple[float, float], Sequence[float]]  # pygame._common._Coordinate, but without pygame.math.Vector2
+
 _Image = Union[pygame.surface.Surface, str]
 _ImageKey = Union[_Image, Tuple[Union[pygame.surface.Surface, str], bool, int, int, int], Tuple[int, int, str]]
-Key = int
+_Key = int
 
 # Module-level private globals
 _known_images: Dict[_ImageKey, pygame.surface.Surface] = {}  # a cache to avoid loading images many time
@@ -801,7 +802,7 @@ def from_text(x: float, y: float, text: str, fontsize: int, color: _ColorValue,
     return from_image(x, y, font.render(text, True, color))
 
 
-def timer_loop(fps: int, callback: Callable[[set[Key]], Any], limit: int = None) -> bool:
+def timer_loop(fps: int, callback: Callable[[set[_Key]], Any], limit: int = None) -> bool:
     """Requests that pygame call the provided function fps times a second
     fps: a number between 1 and 60
     callback: a function that accepts a set of keys pressed since the last tick
@@ -820,7 +821,7 @@ def timer_loop(fps: int, callback: Callable[[set[Key]], Any], limit: int = None)
 
         gamebox.timer_loop(30, tick)"""
     global _timeron, _timerfps
-    keys: set[Key] = set([])
+    keys: set[_Key] = set([])
     if fps > 60:
         fps = 60
     _timerfps = fps
@@ -866,7 +867,7 @@ def stop_loop() -> None:
     pygame.event.post(pygame.event.Event(pygame.QUIT))
 
 
-def keys_loop(callback: Callable[[List[Key]], Any]) -> None:
+def keys_loop(callback: Callable[[List[_Key]], Any]) -> None:
     """Requests that pygame call the provided function each time a key is pressed
     callback: a function that accepts the key pressed::
 
