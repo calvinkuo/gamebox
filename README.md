@@ -24,12 +24,12 @@ they are familiar with.
 ## Contents
 This repository contains drop-in replacements for previous versions of the library:
 * [gamebox_compat_ge.py](gamebox_compat_ge.py) is a drop-in replacement for the UVA Game Engine, which was used in the
-  Fall 2022 semester (compatible with Python 3.7 - 3.10)
+  Fall 2022 semester (compatible with Python 3.7+)
 * Drop-in replacements for the version of gamebox.py used from Spring 2018 through Summer 2022:
-  * [gamebox_compat.py](gamebox_compat.py) (compatible with Python 3.10)
-  * [gamebox_compat_37.py](gamebox_compat_37.py) (compatible with Python 3.7 - 3.10)
+  * [gamebox_compat.py](gamebox_compat.py) (compatible with Python 3.9+)
+  * [gamebox_compat_37.py](gamebox_compat_37.py) (compatible with Python 3.7+)
 * [gamebox_compat_uni.py](gamebox_compat_uni.py) is a universal drop-in replacement for both the UVA Game Engine and
-  gamebox.py (compatible with Python 3.7 - 3.10)
+  gamebox.py (compatible with Python 3.7+)
 * [gamebox_legacy.py](gamebox_legacy.py) is the legacy version of gamebox used from Spring 2018 through Summer 2022
   (compatible with both Python 2 and Python 3)
 
