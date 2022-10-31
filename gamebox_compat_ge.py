@@ -11,8 +11,7 @@ from __future__ import annotations
 import os.path
 import sys
 from typing import Any, Callable, Dict, Hashable, List, Literal, NoReturn, Sequence, Tuple, Union
-import urllib.error
-import urllib.request
+from urllib.request import urlretrieve
 
 import pygame
 
@@ -765,7 +764,7 @@ def _image_from_url(url: str) -> Tuple[pygame.surface.Surface, str]:
     if not os.path.exists(filename):
         if '://' not in url:
             url = 'http://' + url
-        urllib.request.urlretrieve(url, filename)
+        urlretrieve(url, filename)
     image, filename = _image_from_file(filename)
     return image, filename
 

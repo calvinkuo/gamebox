@@ -12,8 +12,7 @@ import os.path
 import inspect
 import sys
 from typing import Any, Callable, Dict, Hashable, List, Literal, NoReturn, Set, Sequence, Tuple, Union
-import urllib.error
-import urllib.request
+from urllib.request import urlretrieve
 
 import pygame
 
@@ -766,7 +765,7 @@ def _image_from_url(url: str) -> Tuple[pygame.surface.Surface, str]:
     if not os.path.exists(filename):
         if '://' not in url:
             url = 'http://' + url
-        urllib.request.urlretrieve(url, filename)
+        urlretrieve(url, filename)
     image, filename = _image_from_file(filename)
     return image, filename
 
@@ -793,7 +792,7 @@ def _get_image(thing: _ImageKey) -> Tuple[pygame.surface.Surface, _ImageKey]:
             if os.path.exists(thing):
                 return _image_from_file(thing)
             return _image_from_url(thing)
-        except (FileNotFoundError, urllib.error.HTTPError):
+        except OSError:
             raise ValueError(f'An error occurred while fetching image, are you sure the file/website name is "{thing}"?')
 
     assert isinstance(thing, pygame.surface.Surface)
