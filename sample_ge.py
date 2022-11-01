@@ -1,4 +1,3 @@
-import pygame
 import gamebox_compat_uni as gamebox
 
 

@@ -1,5 +1,5 @@
 import pygame
-import gamebox
+import gamebox_compat_uni as gamebox
 
 
 camera = gamebox.Camera(400, 400)
