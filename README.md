@@ -56,6 +56,9 @@ when several changes were made by Adam Dirting, and it was renamed the UVA Game 
 `import pygame` is no longer required to be imported separately in gamebox projects,
 as the key constants are now included in gamebox. PyGame still needs to be installed, however.
 
+I would recommend using `from gamebox import *` to reduce the amount of boilerplate in student code,
+so that all the methods and classes don't have to be called as `gamebox.foo`.  
+
 #### Event loop
 * The `pause` and `unpause` functions have been removed. Because `pause` stops the event loop, there is no way to check
   for user input and call `unpause` without an external timer, so providing these as built-in functions is misleading.
