@@ -241,11 +241,14 @@ class Camera:
     is_initialized: bool = False
     keys: set[Key] = set()
 
-    def __init__(self, width: int, height: int, full_screen: bool = False) -> None:
-        """Camera(pixelsWide, pixelsTall, False) makes a window; using True instead makes a full-screen display.
+    def __init__(self, width: int = 800, height: int = 600, *, full_screen: bool = False) -> None:
+        """
+        * ``Camera()`` makes a window that is 800 pixels wide and 600 pixels tall.
+        * ``Camera(pixelsWide, pixelsTall)`` makes a window with the given size.
+        * ``Camera(pixelsWide, pixelsTall, full_screen=True)`` makes it display in full-screen.
 
-        :param width: how pixels wide the window should be
-        :param height: how pixels tall the window should be
+        :param width: How many pixels wide the window should be
+        :param height: How many pixels tall the window should be
         :param full_screen: False will display the game in a window; True will display it in full-screen
         """
         if Camera.is_initialized:
