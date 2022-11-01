@@ -4,14 +4,18 @@ You MUST place this file in the same directory as your game py files."""
 
 from __future__ import annotations
 
+import difflib
+import enum
+import functools
 import os.path
 import sys
-from collections.abc import Callable, Hashable, Sequence
-from functools import singledispatchmethod
-from typing import Any, NoReturn
-from urllib.request import urlretrieve
+import urllib.parse
+import urllib.request
+from collections.abc import Callable, Sequence
+from typing import Any, NamedTuple, NoReturn
 
 import pygame
+from pygame import Surface
 
 pygame.init()
 
@@ -20,16 +24,9 @@ __all__ = [
     'Camera',
     'SpriteBox',
     'load_sprite_sheet',
-    'from_image',
-    'from_color',
-    'from_circle',
-    'from_polygon',
-    'from_text',
     'timer_loop',
-    'pause',
-    'unpause',
-    'stop_loop',
-    'keys_loop'
+    'freeze_loop',
+    'stop_loop'
 ]
 
 # Typing hints copied from pygame._common
@@ -37,14 +34,202 @@ _RgbaOutput = tuple[int, int, int, int]
 _ColorValue = pygame.Color | int | str | tuple[int, int, int] | list[int] | _RgbaOutput
 _Coordinate = tuple[float, float] | Sequence[float]  # pygame._common._Coordinate, but without pygame.math.Vector2
 
-_Image = pygame.surface.Surface | str
-_ImageKey = _Image | tuple[pygame.surface.Surface | str, bool, int, int, int] | tuple[int, int, str]
-_Key = int
 
-# Module-level private globals
-_known_images: dict[_ImageKey, pygame.surface.Surface] = {}  # a cache to avoid loading images many time
-_timeron: bool = False
-_timerfps: int = 0
+class _ImageKey(NamedTuple):
+    """Used as a dictionary key for retrieving cached images."""
+    key: str
+    flip: bool = False
+    w: int = 0
+    h: int = 0
+    angle: int = 0
+
+
+class _TextKey(NamedTuple):
+    """Used as a dictionary key for retrieving cached rendered text."""
+    text: str
+    fontsize: int
+    color: _ColorValue
+    bold: bool
+    italic: bool
+
+
+class Key(enum.IntEnum):
+    """A key on the keyboard.
+
+    :example:
+
+    To check if the space bar is pressed, you can use ``gamebox.Key.K_SPACE.is_pressed()``,
+    ``gamebox.Key(' ').is_pressed()``, or ``gamebox.Key('space').is_pressed()``."""
+    K_BACKSPACE = pygame.K_BACKSPACE
+    K_TAB = pygame.K_TAB
+    K_CLEAR = pygame.K_CLEAR
+    K_RETURN = pygame.K_RETURN
+    K_PAUSE = pygame.K_PAUSE
+    K_ESCAPE = pygame.K_ESCAPE
+    K_SPACE = pygame.K_SPACE
+    K_EXCLAIM = pygame.K_EXCLAIM
+    K_QUOTEDBL = pygame.K_QUOTEDBL
+    K_HASH = pygame.K_HASH
+    K_DOLLAR = pygame.K_DOLLAR
+    K_AMPERSAND = pygame.K_AMPERSAND
+    K_QUOTE = pygame.K_QUOTE
+    K_LEFTPAREN = pygame.K_LEFTPAREN
+    K_RIGHTPAREN = pygame.K_RIGHTPAREN
+    K_ASTERISK = pygame.K_ASTERISK
+    K_PLUS = pygame.K_PLUS
+    K_COMMA = pygame.K_COMMA
+    K_MINUS = pygame.K_MINUS
+    K_PERIOD = pygame.K_PERIOD
+    K_SLASH = pygame.K_SLASH
+    K_0 = pygame.K_0
+    K_1 = pygame.K_1
+    K_2 = pygame.K_2
+    K_3 = pygame.K_3
+    K_4 = pygame.K_4
+    K_5 = pygame.K_5
+    K_6 = pygame.K_6
+    K_7 = pygame.K_7
+    K_8 = pygame.K_8
+    K_9 = pygame.K_9
+    K_COLON = pygame.K_COLON
+    K_SEMICOLON = pygame.K_SEMICOLON
+    K_LESS = pygame.K_LESS
+    K_EQUALS = pygame.K_EQUALS
+    K_GREATER = pygame.K_GREATER
+    K_QUESTION = pygame.K_QUESTION
+    K_AT = pygame.K_AT
+    K_LEFTBRACKET = pygame.K_LEFTBRACKET
+    K_BACKSLASH = pygame.K_BACKSLASH
+    K_RIGHTBRACKET = pygame.K_RIGHTBRACKET
+    K_CARET = pygame.K_CARET
+    K_UNDERSCORE = pygame.K_UNDERSCORE
+    K_BACKQUOTE = pygame.K_BACKQUOTE
+    K_a = pygame.K_a
+    K_b = pygame.K_b
+    K_c = pygame.K_c
+    K_d = pygame.K_d
+    K_e = pygame.K_e
+    K_f = pygame.K_f
+    K_g = pygame.K_g
+    K_h = pygame.K_h
+    K_i = pygame.K_i
+    K_j = pygame.K_j
+    K_k = pygame.K_k
+    K_l = pygame.K_l
+    K_m = pygame.K_m
+    K_n = pygame.K_n
+    K_o = pygame.K_o
+    K_p = pygame.K_p
+    K_q = pygame.K_q
+    K_r = pygame.K_r
+    K_s = pygame.K_s
+    K_t = pygame.K_t
+    K_u = pygame.K_u
+    K_v = pygame.K_v
+    K_w = pygame.K_w
+    K_x = pygame.K_x
+    K_y = pygame.K_y
+    K_z = pygame.K_z
+    K_DELETE = pygame.K_DELETE
+    K_KP0 = pygame.K_KP0
+    K_KP1 = pygame.K_KP1
+    K_KP2 = pygame.K_KP2
+    K_KP3 = pygame.K_KP3
+    K_KP4 = pygame.K_KP4
+    K_KP5 = pygame.K_KP5
+    K_KP6 = pygame.K_KP6
+    K_KP7 = pygame.K_KP7
+    K_KP8 = pygame.K_KP8
+    K_KP9 = pygame.K_KP9
+    K_KP_PERIOD = pygame.K_KP_PERIOD
+    K_KP_DIVIDE = pygame.K_KP_DIVIDE
+    K_KP_MULTIPLY = pygame.K_KP_MULTIPLY
+    K_KP_MINUS = pygame.K_KP_MINUS
+    K_KP_PLUS = pygame.K_KP_PLUS
+    K_KP_ENTER = pygame.K_KP_ENTER
+    K_KP_EQUALS = pygame.K_KP_EQUALS
+    K_UP = pygame.K_UP
+    K_DOWN = pygame.K_DOWN
+    K_RIGHT = pygame.K_RIGHT
+    K_LEFT = pygame.K_LEFT
+    K_INSERT = pygame.K_INSERT
+    K_HOME = pygame.K_HOME
+    K_END = pygame.K_END
+    K_PAGEUP = pygame.K_PAGEUP
+    K_PAGEDOWN = pygame.K_PAGEDOWN
+    K_F1 = pygame.K_F1
+    K_F2 = pygame.K_F2
+    K_F3 = pygame.K_F3
+    K_F4 = pygame.K_F4
+    K_F5 = pygame.K_F5
+    K_F6 = pygame.K_F6
+    K_F7 = pygame.K_F7
+    K_F8 = pygame.K_F8
+    K_F9 = pygame.K_F9
+    K_F10 = pygame.K_F10
+    K_F11 = pygame.K_F11
+    K_F12 = pygame.K_F12
+    K_F13 = pygame.K_F13
+    K_F14 = pygame.K_F14
+    K_F15 = pygame.K_F15
+    K_NUMLOCK = pygame.K_NUMLOCK
+    K_CAPSLOCK = pygame.K_CAPSLOCK
+    K_SCROLLOCK = pygame.K_SCROLLOCK
+    K_RSHIFT = pygame.K_RSHIFT
+    K_LSHIFT = pygame.K_LSHIFT
+    K_RCTRL = pygame.K_RCTRL
+    K_LCTRL = pygame.K_LCTRL
+    K_RALT = pygame.K_RALT
+    K_LALT = pygame.K_LALT
+    K_RMETA = pygame.K_RMETA
+    K_LMETA = pygame.K_LMETA
+    K_LSUPER = pygame.K_LSUPER
+    K_RSUPER = pygame.K_RSUPER
+    K_MODE = pygame.K_MODE
+    K_HELP = pygame.K_HELP
+    K_PRINT = pygame.K_PRINT
+    K_SYSREQ = pygame.K_SYSREQ
+    K_BREAK = pygame.K_BREAK
+    K_MENU = pygame.K_MENU
+    K_POWER = pygame.K_POWER
+    K_EURO = pygame.K_EURO
+    K_AC_BACK = pygame.K_AC_BACK
+
+    def is_pressed(self) -> bool:
+        """Returns a boolean that represents whether this key is being pressed."""
+        return self in Camera.keys
+
+    @classmethod
+    def _missing_(cls, value: object):
+        if isinstance(value, str):
+            # check pygame descriptive key name
+            try:
+                return cls(pygame.key.key_code(value))
+            except ValueError:
+                pass
+
+            # check pygame key constant name
+            try:
+                return cls[f'K_{value.upper()}']
+            except KeyError:
+                pass
+
+            # check possible key names and return the most similar one
+            possible = {}
+            value_cf = value.casefold()
+            for key in Key:
+                name = pygame.key.name(key).casefold()
+                name_ratio = difflib.SequenceMatcher(lambda x: not x.isalnum(), value_cf, name).ratio()
+                possible[name] = name_ratio
+                alt_name = key.name.removeprefix('K_').casefold()
+                if name != alt_name:
+                    alt_name_ratio = difflib.SequenceMatcher(lambda x: not x.isalnum(), value_cf, alt_name).ratio()
+                    if alt_name_ratio > name_ratio:
+                        possible[alt_name] = alt_name_ratio
+            most_likely = max((k for k in possible), key=lambda k: possible[k]).lower()
+            raise ValueError(f"'{value}' is not a valid key name. Did you mean: '{most_likely}'?\n"
+                             "Check https://www.pygame.org/docs/ref/key.html#key-constants-label for a full list")
+        return super()._missing_(value)
 
 
 class Camera:
@@ -53,13 +238,19 @@ class Camera:
     Moving a camera changes what is visible.
     You can add as many other attributes as you want, by (e.g.) saying ``camera.number_of_coins_found = 5``."""
 
-    is_initialized = False
+    is_initialized: bool = False
+    keys: set[Key] = set()
 
     def __init__(self, width: int, height: int, full_screen: bool = False) -> None:
-        """Camera(pixelsWide, pixelsTall, False) makes a window; using True instead makes a full-screen display."""
+        """Camera(pixelsWide, pixelsTall, False) makes a window; using True instead makes a full-screen display.
+
+        :param width: how pixels wide the window should be
+        :param height: how pixels tall the window should be
+        :param full_screen: False will display the game in a window; True will display it in full-screen
+        """
         if Camera.is_initialized:
             raise RuntimeError("You can only have one Camera at a time")
-        self._surface: pygame.surface.Surface
+        self._surface: Surface
         if full_screen:
             self._surface = pygame.display.set_mode((width, height), pygame.FULLSCREEN)
         else:
@@ -68,9 +259,10 @@ class Camera:
         self._y: float = 0.0
         Camera.is_initialized = True
 
-    @singledispatchmethod
+    @functools.singledispatchmethod
     def move(self, x: float, y: float) -> None:
-        """``camera.move(3, -7)`` moves the screen's center to be 3 more pixels to the right and 7 more up."""
+        """``camera.move(3, -7)`` moves the screen's center to be 3 more pixels to the right and 7 more up.
+        If only x given, assumed to be a point [x,y]."""
         self.x += x
         self.y += y
 
@@ -82,35 +274,14 @@ class Camera:
         self.x += coords[0]
         self.y += coords[1]
 
-    def draw(self, thing: SpriteBox | pygame.surface.Surface | str, *args) -> None:
-        """* ``camera.draw(box)`` draws the provided SpriteBox object.
-        * ``camera.draw(image, x, y)`` draws the provided image centered at the provided coordinates.
-        * ``camera.draw("Hi", 12, "red", x, y)`` draws the text Hi in a red 12-point font at x,y."""
-        if isinstance(thing, SpriteBox):
-            if thing.color is not None:
-                region = thing.rect.move(-self._x, -self._y)
-                region = region.clip(self._surface.get_rect())
-                self._surface.fill(thing.color, region)
-            elif thing.image is not None:
-                self._surface.blit(thing.image, [thing.left - self._x, thing.top - self._y])
-        elif isinstance(thing, pygame.surface.Surface):
-            try:
-                if len(args) == 1:
-                    x, y = args[0]
-                else:
-                    x, y = args[:2]
-                self._surface.blit(thing, (x - thing.get_width() / 2, y - thing.get_height() / 2))
-            except (IndexError, TypeError):
-                raise TypeError("Wrong arguments; try .draw(surface, [x,y])")
-        elif type(thing) is str:
-            try:
-                size = args[0]
-                color = args[1]
-                self.draw(pygame.font.Font(None, size).render(thing, True, color), *args[2:])
-            except (IndexError, TypeError):
-                raise TypeError("Wrong arguments; try .draw(text, fontSize, color, [x,y])")
-        else:
-            raise TypeError("I don't know how to draw a ", type(thing))
+    def draw(self, box: SpriteBox) -> None:
+        """Draws the provided SpriteBox object."""
+        if box.color is not None:
+            region = box.rect.move(-self._x, -self._y)
+            region = region.clip(self._surface.get_rect())
+            self._surface.fill(box.color, region)
+        elif box.image is not None:
+            self._surface.blit(box.image, [box.left - self._x, box.top - self._y])
 
     @staticmethod
     def display() -> None:
@@ -274,17 +445,19 @@ class Camera:
 
 class SpriteBox:
     """Intended to represent a sprite (i.e., an image that can be drawn as part of a larger view)
-    and the box that contains it. Has various collision and movement methods built in."""
+    and the box that contains it. Has various collision and movement methods built in.
+    You can add as many other attributes as you want, by (e.g.) saying ``box.number_of_coins_found = 5``."""
 
-    def __init__(self, x: float, y: float, image: _Image | None, color: _ColorValue | None,
+    def __init__(self, x: float, y: float, image: str | Surface | None, color: _ColorValue | None,
                  w: float = None, h: float = None):
-        """You should probably use the from_image, from_text, or from_color method instead of this one"""
+        """You should probably use the :py:meth:`SpriteBox.from_image`, :py:meth:`SpriteBox.from_text`,
+        or :py:meth:`SpriteBox.from_color` functions instead of this."""
         self.x: float = x
         self.y: float = y
         self.speedx: float = 0.0
         self.speedy: float = 0.0
-        self._key: tuple[_Image, bool, int, int, int] | None
-        self._image: pygame.surface.Surface | None
+        self._key: _ImageKey | None
+        self._image: Surface | None
         self._color: _ColorValue | None
         self._w: float
         self._h: float
@@ -306,16 +479,72 @@ class SpriteBox:
             self._w = w
             self._h = h
 
-    def _set_key(self, name: _Image, flip: bool, width: float, height: float, angle: float) -> None:
+    @classmethod
+    def from_image(cls, x: float, y: float, filename_or_url: str | Surface) -> SpriteBox:
+        """Creates a SpriteBox object at the given location from the provided filename, URL, or image."""
+        if isinstance(filename_or_url, Surface):
+            ImageCache.cache_surface(filename_or_url)
+            image = filename_or_url
+        else:
+            image = ImageCache.load_filename_or_url(filename_or_url)
+        return cls(x, y, image, None)
+
+    @classmethod
+    def from_color(cls, x: float, y: float, color: _ColorValue, width: float, height: float) -> SpriteBox:
+        """Creates a SpriteBox object at the given location with the given color, width, and height"""
+        return cls(x, y, None, color, width, height)
+
+    @classmethod
+    def from_circle(cls, x: float, y: float, color: _ColorValue, radius: float, *args) -> SpriteBox:
+        """Creates a SpriteBox object at the given location filled with a circle.
+        `from_circle(x, y, color, radius, color2, radius2, color3, radius3, ...)` works too;
+        the largest circle must come first."""
+        img = Surface((radius * 2, radius * 2), pygame.SRCALPHA, 32)
+        pygame.draw.circle(img, color, (radius, radius), radius)
+        for i in range(1, len(args), 2):
+            color = args[i - 1]
+            pygame.draw.circle(img, color, (radius, radius), args[i])
+        return cls(x, y, img, None)
+
+    @classmethod
+    def from_polygon(cls, x: float, y: float, color: _ColorValue, *pts: _Coordinate) -> SpriteBox:
+        """Creates a SpriteBox of minimal size to store the given points.
+        Note that it will be centered; adding the same offset to all points does not change the polygon."""
+        x0 = min(x for x, y in pts)
+        y0 = min(y for x, y in pts)
+        w = max(x for x, y in pts) - x0
+        h = max(y for x, y in pts) - y0
+        img = Surface((w, h), pygame.SRCALPHA, 32)
+        pygame.draw.polygon(img, color, [(x - x0, y - y0) for x, y in pts])
+        return cls(x, y, img, None)
+
+    @classmethod
+    def from_text(cls, x: float, y: float, text: str, fontsize: int, color: _ColorValue, *,
+                  bold: bool = False, italic: bool = False) -> SpriteBox:
+        """Creates a SpriteBox object at the given location with the given text as its content."""
+        image = ImageCache.render_text(text, fontsize, color, bold=bold, italic=italic)
+        return cls(x, y, image, None)
+
+    def _set_key(self, name: str | Surface, flip: bool, width: float, height: float, angle: float) -> None:
+        """Updates the SpriteBox to display the specified image with the specified transformations."""
+        if isinstance(name, Surface):
+            ImageCache.cache_surface(name)
+            key = '__id__' + str(id(name))  # use id as key for Surface instead
+        else:
+            key = name
+        assert isinstance(key, str)
+
+        # round to nearest int, no need to render images that are within a pixel/degree of each other
         width = int(width + 0.5)
         height = int(height + 0.5)
-        angle = ((int(angle) % 360) + 360) % 360
-        unrot = _image(name, flip, width, height)
+        angle = ((int(angle) % 360) + 360) % 360  # angle in range [0, 360)
+
+        unrot = ImageCache.get_transform(key, flip, width, height)
         if width == 0 and height == 0:
             width = unrot.get_width()
             height = unrot.get_height()
-        self._key = (name, flip, width, height, angle)
-        self._image = _image(*self._key)
+        self._key = _ImageKey(key, flip, width, height, angle)
+        self._image = ImageCache.get_transform(*self._key)
         self._color = None
         self._w = self._image.get_width()
         self._h = self._image.get_height()
@@ -454,16 +683,16 @@ class SpriteBox:
 
     @property
     def rect(self) -> pygame.Rect:
-        """A :py:class:`~pygame.Rect` providing the location and size of the box."""
+        """A :py:class:`~pygame.rect.Rect` providing the location and size of the box."""
         return pygame.Rect(self.topleft, self.size)
 
     @property
-    def image(self) -> pygame.surface.Surface | None:
+    def image(self) -> Surface | None:
         """A :py:class:`~pygame.surface.Surface` representing the current look of the box."""
         return self._image
 
     @image.setter
-    def image(self, value: _Image) -> None:
+    def image(self, value: str | Surface) -> None:
         if self._key is not None:
             key = self._key
             self._set_key(value, *key[1:])
@@ -472,7 +701,7 @@ class SpriteBox:
 
     @property
     def xspeed(self) -> float:
-        """Alias of ``speedx``."""
+        """Alias of :py:attr:`speedx`."""
         return self.speedx
 
     @xspeed.setter
@@ -481,7 +710,7 @@ class SpriteBox:
 
     @property
     def yspeed(self) -> float:
-        """Alias of ``speedy``."""
+        """Alias of :py:attr:`speedy`."""
         return self.speedy
 
     @yspeed.setter
@@ -552,9 +781,10 @@ class SpriteBox:
             padding2 = padding
         return self.overlap(other, padding + 1, padding2 + 1)[0] < 0
 
-    @singledispatchmethod
+    @functools.singledispatchmethod
     def contains(self, x: float, y: float) -> bool:
-        """Checks if the given point is inside this SpriteBox's bounds or not."""
+        """Checks if the given point is inside this SpriteBox's bounds or not.
+        If only x given, assumed to be a point [x,y]."""
         return abs(x - self.x) * 2 < self._w and abs(y - self.y) * 2 < self._h
 
     @contains.register(tuple)
@@ -565,8 +795,8 @@ class SpriteBox:
         return self.contains(coords[0], coords[1])
 
     def move_to_stop_overlapping(self, other: SpriteBox, padding: float = 0, padding2: float = None) -> None:
-        """``b1.move_to_stop_overlapping(b2)`` makes the minimal change to b1's position necessary
-        so that they no longer overlap"""
+        """``b1.move_to_stop_overlapping(b2)`` makes the minimal change to b1's position necessary so that they no
+        longer overlap. Afterwards, b1's speed will be set to 0."""
         o = self.overlap(other, padding, padding2)
         if o != [0, 0]:
             self.move(o)
@@ -576,8 +806,8 @@ class SpriteBox:
                 self.speedy = 0
 
     def move_both_to_stop_overlapping(self, other: SpriteBox, padding: float = 0, padding2: float = None) -> None:
-        """``b1.move_both_to_stop_overlapping(b2)`` changes both b1 and b2's positions
-        so that they no longer overlap"""
+        """``b1.move_both_to_stop_overlapping(b2)`` changes both b1 and b2's positions so that they no longer overlap.
+        Afterwards, both b1 and b2's speed will be set to their average speed."""
         o = self.overlap(other, padding, padding2)
         if o != [0, 0]:
             self.move(o[0] / 2, o[1] / 2)
@@ -589,7 +819,7 @@ class SpriteBox:
                 self.speedy = (self.speedy + other.speedy) / 2
                 other.speedy = self.speedy
 
-    @singledispatchmethod
+    @functools.singledispatchmethod
     def move(self, x: float, y: float) -> None:
         """Change position by the given amount in x and y. If only x given, assumed to be a point [x,y]."""
         self.x += x
@@ -627,7 +857,7 @@ class SpriteBox:
         return str(self)
 
     def __str__(self) -> str:
-        return '%dx%d SpriteBox centered at %d,%d' % (self._w, self._h, self.x, self.y)
+        return f"{self._w}x{self._h} SpriteBox centered at {self.x},{self.y}"
 
     def copy_at(self, newx: float, newy: float) -> SpriteBox:
         """Make a new SpriteBox just like this one but at the given location instead of here."""
@@ -646,16 +876,6 @@ class SpriteBox:
         else:
             key = self._key
             self._set_key(key[0], key[1], key[2] * multiplier, key[3] * multiplier, key[4])
-
-    def draw(self, surface: Camera | pygame.surface.Surface) -> None:
-        """``b1.draw(camera)`` is the same as saying ``camera.draw(b1)``.
-        ``b1.draw(image)`` draws a copy of b1 on the image provided."""
-        if isinstance(surface, Camera):
-            surface.draw(self)
-        elif self._color is not None:
-            surface.fill(self._color, self.rect)
-        elif self._image is not None:
-            surface.blit(self._image, self.topleft)
 
     def flip(self) -> None:
         """Mirrors the SpriteBox left-to-right.
@@ -676,85 +896,131 @@ class SpriteBox:
         self._set_key(key[0], key[1], key[2], key[3], key[4] + angle)
 
 
-def _image(key: _Image, flip: bool = False, w: float = 0, h: float = 0, angle: float = 0) -> pygame.surface.Surface:
-    """A method for loading images, caching them, and flipping them"""
-    if not isinstance(key, Hashable):
-        key = id(key)
-    assert isinstance(key, str) or isinstance(key, int) or isinstance(key, pygame.surface.Surface)
-    angle, w, h = int(angle), int(w), int(h)
-    if (key, flip, w, h, angle) in _known_images:
-        ans = _known_images[(key, flip, w, h, angle)]
-    elif angle != 0:
-        base = _image(key, flip, w, h)
-        img = pygame.transform.rotozoom(base, angle, 1)
-        _known_images[(key, flip, w, h, angle)] = img
-        ans = img
-    elif w != 0 or h != 0:
-        base = _image(key, flip)
-        img = pygame.transform.smoothscale(base, (w, h))
-        _known_images[(key, flip, w, h, angle)] = img
-        ans = img
-    elif flip:
-        base = _image(key)
-        img = pygame.transform.flip(base, True, False)
-        _known_images[(key, flip, w, h, angle)] = img
-        ans = img
-    else:
-        img, _ = _get_image(key)
-        _known_images[(key, flip, w, h, angle)] = img
-        ans = img
-    if w == 0 and h == 0:
-        if angle != 0:
-            tmp = _image(key, flip, w, h)
+class ImageCache:
+    """A cache to avoid loading images many times."""
+    _known_images: dict[_ImageKey, Surface] = {}
+    _known_text: dict[_TextKey, Surface] = {}
+
+    @classmethod
+    def cache_surface(cls, surface: Surface) -> None:
+        """Caches a :py:class:`~Surface`."""
+        sid = '__id__' + str(id(surface))
+        key = _ImageKey(sid)
+        if _ImageKey(sid) not in cls._known_images:
+            cls._known_images[key] = surface
+            cls._known_images[_ImageKey(sid, False, surface.get_width(), surface.get_height())] = surface
+
+    @classmethod
+    def get_transform(cls, key: str, flip: bool = False, w: int = 0, h: int = 0, angle: int = 0) -> Surface:
+        """A method for loading images, caching them, and applying transformations to them."""
+        # get the requested image by getting the base image and applying one transformation at a time recursively
+        # already in cache
+        if _ImageKey(key, flip, w, h, angle) in cls._known_images:
+            ans = cls._known_images[_ImageKey(key, flip, w, h, angle)]
+        # for rotation, get the flipped/scaled image then rotate
+        elif angle != 0:
+            base = ImageCache.get_transform(key, flip, w, h)
+            img = pygame.transform.rotozoom(base, angle, 1)
+            cls._known_images[_ImageKey(key, flip, w, h, angle)] = img
+            ans = img
+        # for scaling, get the flipped image then scale
+        elif w != 0 or h != 0:
+            base = ImageCache.get_transform(key, flip)
+            img = pygame.transform.smoothscale(base, (w, h))
+            cls._known_images[_ImageKey(key, flip, w, h, angle)] = img
+            ans = img
+        # for flipping, get the original image then flip
+        elif flip:
+            base = ImageCache.get_transform(key)
+            img = pygame.transform.flip(base, True, False)
+            cls._known_images[_ImageKey(key, flip, w, h, angle)] = img
+            ans = img
+        # load the original image
         else:
-            tmp = ans
-        _known_images[(key, flip, tmp.get_width(), tmp.get_height(), angle)] = ans
-    return ans
+            img = ImageCache.load_filename_or_url(key)
+            cls._known_images[_ImageKey(key, flip, w, h, angle)] = img
+            ans = img
+
+        # if requested at default size, also cache using the image's original width and height values
+        if w == 0 and h == 0:
+            if angle != 0:
+                tmp = ImageCache.get_transform(key, flip, w, h)
+            else:
+                tmp = ans
+            cls._known_images[_ImageKey(key, flip, tmp.get_width(), tmp.get_height(), angle)] = ans
+
+        return ans
+
+    @classmethod
+    def load_filename_or_url(cls, filename_or_url: str) -> Surface:
+        """A method for loading an image from cache, then a file, then a URL. Caches the image that is loaded."""
+        # check cache
+        key = _ImageKey(filename_or_url)
+        if key in cls._known_images:
+            return cls._known_images[key]
+
+        try:
+            # check local file and add to cache if found
+            if os.path.exists(filename_or_url):
+                return cls._get_filename(filename_or_url)
+
+            # check URL and add to cache if found
+            else:
+                return cls._get_url(filename_or_url)
+        except OSError:
+            raise ValueError(
+                f'An error occurred while fetching image, are you sure the file/website name is "{filename_or_url}"?')
+
+    @classmethod
+    def _get_filename(cls, filename: str) -> Surface:
+        """A method for loading images from files."""
+        # load from file
+        image = pygame.image.load(filename).convert_alpha()
+
+        # add to cache under filename
+        cls._known_images[_ImageKey(filename)] = image
+        cls._known_images[_ImageKey(filename, False, image.get_width(), image.get_height())] = image
+
+        # add to cache as surface
+        cls.cache_surface(image)
+        return image
+
+    @classmethod
+    def _get_url(cls, url: str) -> Surface:
+        """A method for loading images from a URL by first saving them locally."""
+        filename = os.path.basename(urllib.parse.urlparse(url).path)
+        if not os.path.exists(filename):
+            if '://' not in url:
+                url = 'http://' + url
+            urllib.request.urlretrieve(url, filename)
+
+        # load from file and add to cache
+        return cls._get_filename(filename)
+
+    @classmethod
+    def render_text(cls, text: str, fontsize: int, color: _ColorValue, *,
+                    bold: bool = False, italic: bool = False) -> Surface:
+        # check cache
+        key = _TextKey(text, fontsize, color, bold, italic)
+        if key in cls._known_text:
+            return cls._known_text[key]
+
+        # render text
+        font = pygame.font.Font(None, fontsize)
+        font.set_bold(bold)
+        font.set_italic(italic)
+        image = font.render(text, True, color)
+
+        # add to text cache and surface cache
+        cls._known_text[key] = image
+        cls.cache_surface(image)
+        return image
 
 
-def _image_from_url(url: str) -> tuple[pygame.surface.Surface, str]:
-    """A method for loading images from urls by first saving them locally."""
-    filename = os.path.basename(url)
-    if not os.path.exists(filename):
-        if '://' not in url:
-            url = 'http://' + url
-        urlretrieve(url, filename)
-    image, filename = _image_from_file(filename)
-    return image, filename
-
-
-def _image_from_file(filename: str) -> tuple[pygame.surface.Surface, str]:
-    """A method for loading images from files."""
-    image = pygame.image.load(filename).convert_alpha()
-    _known_images[filename] = image
-    _known_images[(image.get_width(), image.get_height(), filename)] = image
-    return image, filename
-
-
-def _get_image(thing: _ImageKey) -> tuple[pygame.surface.Surface, _ImageKey]:
-    """a method for loading images from cache, then file, then url"""
-    if thing in _known_images:
-        return _known_images[thing], thing
-
-    sid = '__id__' + str(id(thing))
-    if sid in _known_images:
-        return _known_images[sid], sid
-
-    if isinstance(thing, str):
-        if os.path.exists(thing):
-            return _image_from_file(thing)
-        return _image_from_url(thing)
-
-    assert isinstance(thing, pygame.surface.Surface)
-    _known_images[sid] = thing
-    _known_images[(thing.get_width(), thing.get_height(), sid)] = thing
-    return thing, sid
-
-
-def load_sprite_sheet(url_or_filename: str, rows: int, columns: int) -> list[pygame.surface.Surface]:
+def load_sprite_sheet(filename_or_url: str, rows: int, columns: int) -> list[Surface]:
     """Loads a sprite sheet.
     Assumes the sheet has rows-by-columns evenly-spaced images and returns a list of those images."""
-    sheet, key = _get_image(url_or_filename)
+    sheet = ImageCache.load_filename_or_url(filename_or_url)
     height = sheet.get_height() / rows
     width = sheet.get_width() / columns
     frames = []
@@ -766,137 +1032,61 @@ def load_sprite_sheet(url_or_filename: str, rows: int, columns: int) -> list[pyg
     return frames
 
 
-def from_image(x: float, y: float, filename_or_url: str | pygame.surface.Surface) -> SpriteBox:
-    """Creates a SpriteBox object at the given location from the provided filename or url"""
-    image, key = _get_image(filename_or_url)
-    return SpriteBox(x, y, image, None)
+def timer_loop(fps: int, callback: Callable[[], Any], limit: int = None) -> bool:
+    # noinspection PyMissingTypeHints,PyShadowingNames,PyUnresolvedReferences
+    """Requests that pygame call the provided function `fps` times a second.
 
+        :param fps: a number between 1 and 60
+        :param callback: a function that accepts a set of keys pressed since the last tick
+        :param limit: if given, will only run for that many frames and then return True
+        :return: True if given limit and limit reached; False otherwise
 
-def from_color(x: float, y: float, color: _ColorValue, width: float, height: float) -> SpriteBox:
-    """Creates a SpriteBox object at the given location with the given color, width, and height"""
-    return SpriteBox(x, y, None, color, width, height)
+        :example:
 
-
-def from_circle(x: float, y: float, color: _ColorValue, radius: float, *args) -> SpriteBox:
-    """Creates a SpriteBox object at the given location filled with a circle.
-    from_circle(x,y,color,radius,color2,radius2,color3,radius3,...) works too; the largest circle must come first"""
-    img = pygame.surface.Surface((radius * 2, radius * 2), pygame.SRCALPHA, 32)
-    pygame.draw.circle(img, color, (radius, radius), radius)
-    for i in range(1, len(args), 2):
-        color = args[i - 1]
-        pygame.draw.circle(img, color, (radius, radius), args[i])
-    return SpriteBox(x, y, img, None)
-
-
-def from_polygon(x: float, y: float, color: _ColorValue, *pts: _Coordinate) -> SpriteBox:
-    """Creates a SpriteBox of minimal size to store the given points.
-    Note that it will be centered; adding the same offset to all points does not change the polygon."""
-    x0 = min(x for x, y in pts)
-    y0 = min(y for x, y in pts)
-    w = max(x for x, y in pts) - x0
-    h = max(y for x, y in pts) - y0
-    img = pygame.surface.Surface((w, h), pygame.SRCALPHA, 32)
-    pygame.draw.polygon(img, color, [(x - x0, y - y0) for x, y in pts])
-    return SpriteBox(x, y, img, None)
-
-
-def from_text(x: float, y: float, text: str, fontsize: int, color: _ColorValue,
-              bold: bool = False, italic: bool = False) -> SpriteBox:
-    """Creates a SpriteBox object at the given location with the given text as its content"""
-    # always use default font. Earlier versions allowed others, but this proved platform-dependent
-    font = pygame.font.Font(None, fontsize)
-    font.set_bold(bold)
-    font.set_italic(italic)
-    return from_image(x, y, font.render(text, True, color))
-
-
-def timer_loop(fps: int, callback: Callable[[set[_Key]], Any], limit: int = None) -> bool:
-    """Requests that pygame call the provided function fps times a second
-    fps: a number between 1 and 60
-    callback: a function that accepts a set of keys pressed since the last tick
-    limit: if given, will only run for that many frames and then return True
-    returns: True if given limit and limit reached; False otherwise::
-
-        seconds = 0
-        def tick(keys):
-            seconds += 1/30
-            if pygame.K_DOWN in keys:
-                print 'down arrow pressed'
-            if not keys:
-                print 'no keys were pressed since the last tick'
-            camera.draw(box)
-            camera.display()
-
-        gamebox.timer_loop(30, tick)"""
-    global _timeron, _timerfps
-    keys: set[_Key] = set([])
+        >>> seconds = 0
+        >>>
+        >>> def tick(keys):
+        >>>     seconds += 1/30
+        >>>     if pygame.K_DOWN in keys:
+        >>>         print('down arrow pressed')
+        >>>     if not keys:
+        >>>         print('no keys were pressed since the last tick')
+        >>>     camera.draw(box)
+        >>>     camera.display()
+        >>>
+        >>> gamebox.timer_loop(30, tick)
+        """
+    # Enforce maximum FPS of 60
     if fps > 60:
         fps = 60
-    _timerfps = fps
-    _timeron = True
+
     frames = 0
     pygame.time.set_timer(pygame.USEREVENT, int(1000 / fps))
     while not limit or frames < limit:
         event = pygame.event.wait()
-        if event.type == pygame.QUIT:
+        if event.type == pygame.QUIT:  # closing the window or stop_loop()
             break
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
                 break
             else:
-                keys.add(event.key)
-        elif event.type == pygame.KEYUP and event.key in keys:
-            keys.remove(event.key)
+                Camera.keys.add(event.key)
+        elif event.type == pygame.KEYUP and event.key in Camera.keys:
+            Camera.keys.remove(event.key)
         elif event.type == pygame.USEREVENT:
             frames += 1
             pygame.event.clear(pygame.USEREVENT)
-            callback(keys)
+            callback()
     pygame.time.set_timer(pygame.USEREVENT, 0)
-    _timeron = False
     return limit == frames
 
 
-def pause() -> None:
-    """Pauses the timer; an error if there is no timer to pause"""
-    if not _timeron:
-        raise RuntimeError("Cannot pause a timer before calling timer_loop(fps, callback)")
+def freeze_loop() -> None:
+    """Freezes the game and stops the timer.
+    You cannot unfreeze the game, but you can still exit the game using the Esc key."""
     pygame.time.set_timer(pygame.USEREVENT, 0)
 
 
-def unpause() -> None:
-    """Unpauses the timer; an error if there is no timer to unpause"""
-    if not _timeron:
-        raise RuntimeError("Cannot pause a timer before calling timer_loop(fps, callback)")
-    pygame.time.set_timer(pygame.USEREVENT, int(1000 / _timerfps))
-
-
 def stop_loop() -> None:
-    """Completely quits one timer_loop or keys_loop, usually ending the program"""
+    """Completely quits the `timer_loop`, usually ending the program."""
     pygame.event.post(pygame.event.Event(pygame.QUIT))
-
-
-def keys_loop(callback: Callable[[list[_Key]], Any]) -> None:
-    """Requests that pygame call the provided function each time a key is pressed
-    callback: a function that accepts the key pressed::
-
-        def onPress(key):
-            if pygame.K_DOWN == key:
-                print 'down arrow pressed'
-            if pygame.K_a in keys:
-                print 'A key pressed'
-            camera.draw(box)
-            camera.display()
-
-        gamebox.keys_loop(onPress)
-    """
-    while True:
-        event = pygame.event.wait()
-        if event.type == pygame.QUIT:
-            break
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_ESCAPE:
-                break
-            else:
-                callback([event.key])
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            callback([])
