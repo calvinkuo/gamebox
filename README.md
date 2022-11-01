@@ -53,7 +53,8 @@ when several changes were made by Adam Dirting, and it was renamed the UVA Game 
 ## Changelog
 ### Changes between gamebox and the rewrite
 #### Imports
-`import pygame` is no longer required in gamebox projects, as the key constants are now included in gamebox.
+`import pygame` is no longer required to be imported separately in gamebox projects,
+as the key constants are now included in gamebox. PyGame still needs to be installed, however.
 
 #### Event loop
 * The `pause` and `unpause` functions have been removed. Because `pause` stops the event loop, there is no way to check
@@ -63,57 +64,93 @@ when several changes were made by Adam Dirting, and it was renamed the UVA Game 
 * The `keys_loop` function (where a tick occurs only when a key is pressed or mouse is clicked) has been removed.
   Use `timer_loop` with an appropriate frame rate instead.
 
-#### Drawing
+#### SpriteBox
 The `from_image`, `from_color`, `from_circle`, `from_polygon`, and `from_text` functions are now methods within the
 SpriteBox class.
-* Old:
-  * `gamebox.from_image(x, y, filename_or_url)`
-  * `gamebox.from_color(x, y, color, width, height)`
-  * `gamebox.from_circle(x, y, color, radius, *args)`
-  * `gamebox.from_polygon(x, y, color, *pts)`
-  * `gamebox.from_text(x, y, text: str, fontsize, color, bold=False, italic=False)`
-* New:
-  * `gamebox.SpriteBox.from_image(x, y, filename_or_url)`
-  * `gamebox.SpriteBox.from_color(x, y, color, width, height)`
-  * `gamebox.SpriteBox.from_circle(x, y, color, radius, *args)`
-  * `gamebox.SpriteBox.from_polygon(x, y, color, *pts)`
-  * `gamebox.SpriteBox.from_text(x, y, text: str, fontsize, color, bold=False, italic=False)`
+```python
+"""Filenames, URLs, and Surfaces"""
+gamebox.from_image(x, y, filename_or_url)            # Old
+gamebox.SpriteBox.from_image(x, y, filename_or_url)  # New
+
+"""Colors"""
+gamebox.from_color(x, y, color, width, height)            # Old
+gamebox.SpriteBox.from_color(x, y, color, width, height)  # New
+
+"""Circles"""
+gamebox.from_circle(x, y, color, radius, *args)            # Old
+gamebox.SpriteBox.from_circle(x, y, color, radius, *args)  # New
+
+"""Polygons"""
+gamebox.from_polygon(x, y, color, *pts)            # Old
+gamebox.SpriteBox.from_polygon(x, y, color, *pts)  # New
+
+"""Text"""
+gamebox.from_text(x, y, text, fontsize, color, bold=False, italic=False)            # Old
+gamebox.SpriteBox.from_text(x, y, text, fontsize, color, bold=False, italic=False)  # New
+```
+
+Note that the `bold` and `ìtalic` parameters of `from_text` are now keyword-only arguments.
+This makes it clearer whether bold or italics is desired and prevents accidental mix-ups.
+```python
+"""Italic text"""
+gamebox.from_text(x, y, text, size, color, True, False)            # Old
+gamebox.SpriteBox.from_text(x, y, text, size, color, italic=True)  # New
+
+"""Bold text"""
+gamebox.from_text(x, y, text, size, color, False, True)          # Old
+gamebox.SpriteBox.from_text(x, y, text, size, color, bold=True)  # New
+
+"""Bold italic text"""
+gamebox.from_text(x, y, text, size, color, True, True)                        # Old
+gamebox.SpriteBox.from_text(x, y, text, size, color, italic=True, bold=True)  # New
+```
 
 The `box.draw(camera)` method in the SpriteBox class has been removed,
 to reinforce the "there should only be one way to do it" philosophy. Instead, call `camera.draw(box)`.
 This also removes the ability to draw a SpriteBox directly onto a Surface.
 
+#### Camera
+The Camera constructor now has a default size of 800 &times; 600 pixels.
+The `full_screen` parameter is now a keyword-only argument.
+```python
+"""800 &times; 600 resolution, window"""
+gamebox.Camera(800, 600)  # Old
+gamebox.Camera()          # New
+
+"""800 &times; 600 resolution, full-screen"""
+gamebox.Camera(800, 600, True)    # Old
+gamebox.Camera(full_screen=True)  # New
+
+"""1920 &times; 1080 resolution, full-screen"""
+gamebox.Camera(1920, 1080, True)              # Old
+gamebox.Camera(1920, 1080, full_screen=True)  # New
+```
+
 The `camera.draw(thing)` method can no longer be called to print a Surface or a string directly.
 Instead, create the equivalent SpriteBox and call `camera.draw(box)`.
-* If `thing` is a Surface:
-  * Old: `camera.draw(surface, x, y)`
-  * New: `camera.draw(gamebox.SpriteBox.from_image(x, y, surface))`
-* If `thing` is a string:
-  * Old: `camera.draw(text, x, y, size, color)`
-  * New: `camera.draw(gamebox.SpriteBox.from_text(x, y, text, size, color))`
+```python
+"""If `thing` is a Surface"""
+camera.draw(surface, x, y)                                # Old
+camera.draw(gamebox.SpriteBox.from_image(x, y, surface))  # New
 
-The `bold` and `ìtalic` parameters of `gamebox.from_text()` are now keyword-only arguments.
-This makes it clearer which one is being called and prevents accidental mix-ups.
-* Italic text:
-  * Old: `gamebox.from_text(x, y, text, size, color, True, False)`
-  * New: `gamebox.SpriteBox.from_text(x, y, text, size, color, italic=True)`
-* Bold text:
-  * Old: `gamebox.from_text(x, y, text, size, color, False, True)`
-  * New: `gamebox.SpriteBox.from_text(x, y, text, size, color, bold=True)`
-* Bold italic text:
-  * Old: `gamebox.from_text(x, y, text, size, color, True, True)`
-  * New: `gamebox.SpriteBox.from_text(x, y, text, size, color, italic=True, bold=True)`
+"""If `thing` is a string"""
+camera.draw(text, x, y, size, color)                               # Old
+camera.draw(gamebox.SpriteBox.from_text(x, y, text, size, color))  # New
+```
 
 #### Keyboard
 Keys are now represented using an IntEnum class. This allows for autocomplete to suggest the `K_*` constant names,
 while still allowing for the descriptive names to be used.
-* Old:
-  * `pygame.K_PERIOD in keys` (legacy)
-  * `gamebox.is_pressing('period')` (Game Engine)
-* New:
-  * `gamebox.Key.K_PERIOD.is_pressed()`
-  * `gamebox.Key('period').is_pressed()`
-  * `gamebox.Key('.').is_pressed()`
+```python
+"""Old"""
+pygame.K_PERIOD in keys        # legacy
+gamebox.is_pressing('period')  # Game Engine
+
+"""New"""
+gamebox.Key('.').is_pressed()
+gamebox.Key.K_PERIOD.is_pressed()
+gamebox.Key('period').is_pressed()
+```
 
 [PyCharm doesn't currently warn in the IDE for invalid attributes of an Enum](https://youtrack.jetbrains.com/issue/PY-21371/Unresolved-reference-false-negative-Invalid-Enum-members-is-not-detected),
 unfortunately, but it will still throw an AttributeError at runtime though.
