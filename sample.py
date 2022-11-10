@@ -1,11 +1,11 @@
-import gamebox
+from gamebox import *
 
 
-camera = gamebox.Camera(400, 400)
+camera = Camera(400, 400)
 
 camera.x = 10
 
-b = gamebox.SpriteBox.from_text(40, 50, "It Works! (type \"0\")", 40, "red", italic=True, bold=False)
+b = SpriteBox.from_text(40, 50, "It Works! (type \"0\")", 40, "red", italic=True, bold=False)
 b.speedx = 3
 b.left += 2
 b.y = 100
@@ -14,18 +14,18 @@ b.move_speed()
 camera.draw(b)
 camera.display()
 
-def tick(keys):
+def tick():
     global b
-    if keys:
-        if gamebox.Key.K_0 in keys:
-            b = gamebox.SpriteBox.from_text(40, 50, "Type \"1\"", 40, "blue", italic=False, bold=False)
-        elif gamebox.Key.K_1 in keys:
-            b = gamebox.SpriteBox.from_text(40, 50, "Type \"2\"", 40, "green", italic=True, bold=True)
-        elif gamebox.Key.K_2 in keys:
-            b = gamebox.SpriteBox.from_text(40, 50, "Type \"3\"", 40, "white", italic=False, bold=True)
-        elif gamebox.Key.K_a in keys:
-            gamebox.stop_loop()
-        elif keys:
+    if Key.is_any_pressed():
+        if Key.K_0.is_pressed():
+            b = SpriteBox.from_text(40, 50, "Type \"1\"", 40, "blue", italic=False, bold=False)
+        elif Key.K_1.is_pressed():
+            b = SpriteBox.from_text(40, 50, "Type \"2\"", 40, "green", italic=True, bold=True)
+        elif Key.K_2.is_pressed():
+            b = SpriteBox.from_text(40, 50, "Type \"3\"", 40, "white", italic=False, bold=True)
+        elif Key.K_a.is_pressed():
+            stop_loop()
+        else:
             b.image = "https://www.python.org/static/img/python-logo.png"
         b.full_size()
     b.rotate(-5)
@@ -34,4 +34,4 @@ def tick(keys):
     camera.draw(b)
     camera.display()
 
-gamebox.timer_loop(30, tick)
+timer_loop(30, tick)

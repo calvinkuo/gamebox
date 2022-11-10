@@ -164,6 +164,19 @@ ValueError: 'coma' is not a valid key name. Did you mean: 'comma'?
 Check https://www.pygame.org/docs/ref/key.html#key-constants-label for a full list
 ```
 
+The static method `Key.is_any_pressed()` can be used to check if *any* key is being pressed:
+```python
+"""Old"""
+if keys:          # legacy
+    ...
+if gamebox.keys:  # Game Engine
+    ...
+
+"""New"""
+if Key.is_any_pressed():
+    ...
+```
+
 #### Internal changes
 * Rendered text is now cached. This prevents memory leaks when `gamebox.from_text()` is called continuously.
 * Various refactors.

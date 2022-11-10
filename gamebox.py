@@ -21,6 +21,7 @@ pygame.init()
 
 
 __all__ = [
+    'Key',
     'Camera',
     'SpriteBox',
     'load_sprite_sheet',
@@ -197,7 +198,12 @@ class Key(enum.IntEnum):
 
     def is_pressed(self) -> bool:
         """Returns a boolean that represents whether this key is being pressed."""
-        return self in Camera.keys
+        return self in Camera.instance.keys
+
+    @staticmethod
+    def is_any_pressed() -> bool:
+        """Returns a boolean that represents whether any key is being pressed."""
+        return bool(Camera.instance.keys)
 
     @classmethod
     def _missing_(cls, value: object):
@@ -238,8 +244,7 @@ class Camera:
     Moving a camera changes what is visible.
     You can add as many other attributes as you want, by (e.g.) saying ``camera.number_of_coins_found = 5``."""
 
-    is_initialized: bool = False
-    keys: set[Key] = set()
+    instance: Camera = None  # singleton
 
     def __init__(self, width: int = 800, height: int = 600, *, full_screen: bool = False) -> None:
         """
@@ -251,7 +256,7 @@ class Camera:
         :param height: How many pixels tall the window should be
         :param full_screen: False will display the game in a window; True will display it in full-screen
         """
-        if Camera.is_initialized:
+        if self.__class__.instance is not None:
             raise RuntimeError("You can only have one Camera at a time")
         self._surface: Surface
         if full_screen:
@@ -260,7 +265,8 @@ class Camera:
             self._surface = pygame.display.set_mode((width, height))
         self._x: float = 0.0
         self._y: float = 0.0
-        Camera.is_initialized = True
+        self.keys: set[Key] = set()
+        self.__class__.instance = self
 
     @functools.singledispatchmethod
     def move(self, x: float, y: float) -> None:
@@ -422,7 +428,8 @@ class Camera:
     @property
     def mouse(self) -> tuple[float, float]:
         """The (x, y) coordinates of the mouse cursor."""
-        return pygame.mouse.get_pos()[0] + self._x, pygame.mouse.get_pos()[1] + self._y
+        pos = pygame.mouse.get_pos()
+        return pos[0] + self._x, pos[1] + self._y
 
     @property
     def mouseclick(self) -> bool:
@@ -1073,9 +1080,9 @@ def timer_loop(fps: int, callback: Callable[[], Any], limit: int = None) -> bool
             if event.key == pygame.K_ESCAPE:
                 break
             else:
-                Camera.keys.add(event.key)
-        elif event.type == pygame.KEYUP and event.key in Camera.keys:
-            Camera.keys.remove(event.key)
+                Camera.instance.keys.add(event.key)
+        elif event.type == pygame.KEYUP and event.key in Camera.instance.keys:
+            Camera.instance.keys.remove(event.key)
         elif event.type == pygame.USEREVENT:
             frames += 1
             pygame.event.clear(pygame.USEREVENT)
