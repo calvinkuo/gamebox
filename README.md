@@ -112,6 +112,15 @@ The `box.draw(camera)` method in the SpriteBox class has been removed,
 to reinforce the "there should only be one way to do it" philosophy. Instead, call `camera.draw(box)`.
 This also removes the ability to draw a SpriteBox directly onto a Surface.
 
+The `box.mousehover` and `box.mouseclick` properties have been added to make checking for mouse actions easier.
+```python
+if box.mousehover:
+    ...  # do something if the mouse is hovering over this box
+
+if box.mouseclick:
+    ...  # do something if the mouse is clicking this box
+```
+
 #### Camera
 The Camera constructor now has a default size of 800 &times; 600 pixels.
 The `full_screen` parameter is now a keyword-only argument.

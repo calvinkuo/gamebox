@@ -727,6 +727,16 @@ class SpriteBox:
     def yspeed(self, value: float) -> None:
         self.speedy = value
 
+    @property
+    def mousehover(self) -> bool:
+        """Whether the mouse cursor is hovering over this box."""
+        return self.contains(*Camera.instance.mouse)
+
+    @property
+    def mouseclick(self) -> bool:
+        """Whether this box is being clicked with any of the mouse buttons."""
+        return self.mousehover and Camera.instance.mouseclick
+
     def overlap(self, other: SpriteBox, padding: float = 0, padding2: float = None) -> list[float]:
         """``b1.overlap(b1)`` returns a list of 2 values such that ``self.move(result)`` will cause them to not overlap.
         Returns ``[0,0]`` if there is no overlap (i.e., if ``b1.touches(b2)`` returns False).
