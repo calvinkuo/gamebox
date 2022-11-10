@@ -493,10 +493,10 @@ class SpriteBox:
     def from_image(cls, x: float, y: float, filename_or_url: str | Surface) -> SpriteBox:
         """Creates a SpriteBox object at the given location from the provided filename, URL, or image."""
         if isinstance(filename_or_url, Surface):
-            ImageCache.cache_surface(filename_or_url)
+            _ImageCache.cache_surface(filename_or_url)
             image = filename_or_url
         else:
-            image = ImageCache.load_filename_or_url(filename_or_url)
+            image = _ImageCache.load_filename_or_url(filename_or_url)
         return cls(x, y, image, None)
 
     @classmethod
@@ -532,13 +532,13 @@ class SpriteBox:
     def from_text(cls, x: float, y: float, text: str, fontsize: int, color: _ColorValue, *,
                   bold: bool = False, italic: bool = False) -> SpriteBox:
         """Creates a SpriteBox object at the given location with the given text as its content."""
-        image = ImageCache.render_text(text, fontsize, color, bold=bold, italic=italic)
+        image = _ImageCache.render_text(text, fontsize, color, bold=bold, italic=italic)
         return cls(x, y, image, None)
 
     def _set_key(self, name: str | Surface, flip: bool, width: float, height: float, angle: float) -> None:
         """Updates the SpriteBox to display the specified image with the specified transformations."""
         if isinstance(name, Surface):
-            ImageCache.cache_surface(name)
+            _ImageCache.cache_surface(name)
             key = '__id__' + str(id(name))  # use id as key for Surface instead
         else:
             key = name
@@ -549,12 +549,12 @@ class SpriteBox:
         height = int(height + 0.5)
         angle = ((int(angle) % 360) + 360) % 360  # angle in range [0, 360)
 
-        unrot = ImageCache.get_transform(key, flip, width, height)
+        unrot = _ImageCache.get_transform(key, flip, width, height)
         if width == 0 and height == 0:
             width = unrot.get_width()
             height = unrot.get_height()
         self._key = _ImageKey(key, flip, width, height, angle)
-        self._image = ImageCache.get_transform(*self._key)
+        self._image = _ImageCache.get_transform(*self._key)
         self._color = None
         self._w = self._image.get_width()
         self._h = self._image.get_height()
@@ -906,7 +906,7 @@ class SpriteBox:
         self._set_key(key[0], key[1], key[2], key[3], key[4] + angle)
 
 
-class ImageCache:
+class _ImageCache:
     """A cache to avoid loading images many times."""
     _known_images: dict[_ImageKey, Surface] = {}
     _known_text: dict[_TextKey, Surface] = {}
@@ -929,32 +929,32 @@ class ImageCache:
             ans = cls._known_images[_ImageKey(key, flip, w, h, angle)]
         # for rotation, get the flipped/scaled image then rotate
         elif angle != 0:
-            base = ImageCache.get_transform(key, flip, w, h)
+            base = _ImageCache.get_transform(key, flip, w, h)
             img = pygame.transform.rotozoom(base, angle, 1)
             cls._known_images[_ImageKey(key, flip, w, h, angle)] = img
             ans = img
         # for scaling, get the flipped image then scale
         elif w != 0 or h != 0:
-            base = ImageCache.get_transform(key, flip)
+            base = _ImageCache.get_transform(key, flip)
             img = pygame.transform.smoothscale(base, (w, h))
             cls._known_images[_ImageKey(key, flip, w, h, angle)] = img
             ans = img
         # for flipping, get the original image then flip
         elif flip:
-            base = ImageCache.get_transform(key)
+            base = _ImageCache.get_transform(key)
             img = pygame.transform.flip(base, True, False)
             cls._known_images[_ImageKey(key, flip, w, h, angle)] = img
             ans = img
         # load the original image
         else:
-            img = ImageCache.load_filename_or_url(key)
+            img = _ImageCache.load_filename_or_url(key)
             cls._known_images[_ImageKey(key, flip, w, h, angle)] = img
             ans = img
 
         # if requested at default size, also cache using the image's original width and height values
         if w == 0 and h == 0:
             if angle != 0:
-                tmp = ImageCache.get_transform(key, flip, w, h)
+                tmp = _ImageCache.get_transform(key, flip, w, h)
             else:
                 tmp = ans
             cls._known_images[_ImageKey(key, flip, tmp.get_width(), tmp.get_height(), angle)] = ans
@@ -1030,7 +1030,7 @@ class ImageCache:
 def load_sprite_sheet(filename_or_url: str, rows: int, columns: int) -> list[Surface]:
     """Loads a sprite sheet.
     Assumes the sheet has rows-by-columns evenly-spaced images and returns a list of those images."""
-    sheet = ImageCache.load_filename_or_url(filename_or_url)
+    sheet = _ImageCache.load_filename_or_url(filename_or_url)
     height = sheet.get_height() / rows
     width = sheet.get_width() / columns
     frames = []
